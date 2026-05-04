@@ -2,7 +2,17 @@
 
 All notable changes to Tandem Browser will be documented in this file.
 
-## Unreleased
+## [v1.1.0] - 2026-05-04
+
+Windows support foundation. This release adds the platform adapter layer that
+later Windows phases will migrate into, while keeping current production call
+sites unchanged.
+
+### Added
+
+- **Platform adapter foundation** - added the typed `src/platform/` layer with
+  capability profiles, platform selection, Darwin wrappers, and Windows/Linux
+  stubs for future phased platform work without migrating production call sites.
 
 ### Documentation
 
