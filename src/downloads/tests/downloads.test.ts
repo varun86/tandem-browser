@@ -13,6 +13,8 @@ vi.mock('../../shared/ipc-channels', () => ({
 
 import { DownloadManager } from '../manager';
 
+const normalizePath = (value: unknown) => String(value).replace(/\\/g, '/');
+
 describe('DownloadManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -91,7 +93,7 @@ describe('DownloadManager', () => {
 
       willDownloadCb({}, mockItem);
 
-      expect(mockItem.setSavePath).toHaveBeenCalledWith('/tmp/downloads/test.pdf');
+      expect(normalizePath(mockItem.setSavePath.mock.calls[0][0])).toBe('/tmp/downloads/test.pdf');
       const downloads = dm.list();
       expect(downloads).toHaveLength(1);
       expect(downloads[0].filename).toBe('test.pdf');

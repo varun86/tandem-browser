@@ -162,6 +162,32 @@ tandem-browser/
 - Required: “look for `// === SECTION NAME ===` in `shell/index.html`”
 - Use `grep -n "function name" file.ts` if you need to locate something
 
+### 7. Cross-Platform Discipline
+
+- Treat `docs/platform-support.md` as the public platform capability matrix.
+  Update it whenever a platform capability changes status.
+- macOS Apple Silicon is the protected baseline. Any shared-code change must
+  preserve existing macOS behavior and call out the macOS safety check in the
+  PR description.
+- Windows 11 x64 is the active target platform. Keep Windows work phased,
+  independently revertable, and isolated behind platform adapters where code
+  changes are needed.
+- Do not add new `process.platform` branches in shared application code.
+  Introduce platform-specific behavior through `src/platform/` adapters as the
+  Windows track lands. Existing branches are grandfathered until their phase
+  migrates them.
+- Do not put Unix shell syntax in `package.json` scripts. Cross-platform
+  launch and maintenance behavior must go through Node helpers.
+- Do not claim Windows support in README, website, `docs/llms.txt`, or release
+  notes until a real signed Windows installer and required Windows CI exist.
+- Do not break local agent bootstrap. `~/.tandem/api-token` remains a readable
+  compatibility contract for local MCP/HTTP clients until a replacement
+  bootstrap flow is explicitly designed and shipped.
+- Keep shared helpers Electron-safe. Utilities used by tests, MCP helpers, or
+  Node scripts must not require Electron `app` at module import time.
+- All repository content must be English, including public docs, local plans,
+  comments, commit messages, changelog entries, and handoff files.
+
 ## Rules — What You Must Not Do
 
 ### Absolutely Not

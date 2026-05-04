@@ -2,6 +2,19 @@
 
 All notable changes to Tandem Browser will be documented in this file.
 
+## Unreleased
+
+### Documentation
+
+- **Windows support guardrails** - added the public platform support matrix,
+  cross-platform contributor rules, PR platform-impact checks, and agent-facing
+  guidance for phased Windows work without changing runtime behavior.
+
+### Testing
+
+- **Windows local verification** - made the consistency checker shell-free and
+  updated path-sensitive tests so `npm run verify` passes on Windows.
+
 ## [v1.0.1] - 2026-04-21
 
 Cloudflare human mode — phase 3. Challenge-sensitive tabs now run with reduced security instrumentation so Turnstile and the Cloudflare interstitial see a stock Chromium surface, while non-Cloudflare tabs keep the full security stack. Phases 4 (human handoff) and 5 (conservative resume after `cf_clearance`) are on hold.

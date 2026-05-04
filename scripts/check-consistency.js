@@ -11,7 +11,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { execSync, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
 const fix = process.argv.includes('--fix');
@@ -21,12 +21,24 @@ const fix = process.argv.includes('--fix');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8'));
 const version = pkg.version;
 
-// Count server.tool( across all tool files
-const toolCount = Number(
-  execSync('grep -r "server\\.tool(" src/mcp/tools/*.ts | wc -l', { cwd: root })
-    .toString()
-    .trim()
-);
+function countToolDefinitions(dir) {
+  let count = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      count += countToolDefinitions(fullPath);
+      continue;
+    }
+    if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    count += content.match(/server\.tool\(/g)?.length ?? 0;
+  }
+  return count;
+}
+
+// Count server.tool( across all tool files without shelling out, so this
+// checker works on Windows as well as macOS/Linux.
+const toolCount = countToolDefinitions(path.join(root, 'src', 'mcp', 'tools'));
 
 console.log(`Sources of truth: v${version}, ${toolCount} tools\n`);
 

@@ -21,6 +21,8 @@ native/speech/tandem-speech
 
 # Implementation plans (private, local only)
 docs/superpowers/
+docs/plans/windows-support-design.md
+docs/implementations/windows-support/
 
 # Local Claude Code settings and worktrees
 .claude/

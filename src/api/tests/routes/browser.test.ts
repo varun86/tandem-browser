@@ -114,6 +114,8 @@ import { humanizedClick, humanizedType } from '../../../input/humanized';
 import { wingmanAlert } from '../../../notifications/alert';
 import fs from 'fs';
 
+const normalizePath = (value: unknown) => String(value).replace(/\\/g, '/');
+
 describe('Browser Routes', () => {
   let ctx: RouteContext;
   let app: ReturnType<typeof createTestApp>;
@@ -755,7 +757,7 @@ describe('Browser Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
-      expect(res.body.path).toBe(savePath);
+      expect(normalizePath(res.body.path)).toMatch(/\/mock-home\/Desktop\/shot\.png$/);
       expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
@@ -767,7 +769,7 @@ describe('Browser Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
-      expect(res.body.path).toBe(savePath);
+      expect(normalizePath(res.body.path)).toMatch(/\/mock-home\/Downloads\/shot\.png$/);
     });
 
     it('saves screenshot to allowed .tandem path', async () => {
@@ -778,7 +780,7 @@ describe('Browser Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
-      expect(res.body.path).toBe(savePath);
+      expect(normalizePath(res.body.path)).toMatch(/\/mock-home\/\.tandem\/screenshots\/shot\.png$/);
     });
 
     it('rejects save to disallowed path', async () => {

@@ -4,19 +4,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // filesystem has to live inside vi.hoisted() to be reachable from the
 // mock factory.
 const { vfs } = vi.hoisted(() => ({ vfs: new Map<string, string>() }));
+const normalizePath = (value: unknown) => String(value).replace(/\\/g, '/');
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual('fs') as Record<string, unknown>;
   const fs = {
     ...actual,
     existsSync: vi.fn((p: string) => {
-      const s = String(p);
+      const s = normalizePath(p);
       if ([...vfs.keys()].some((k) => k === s || k.startsWith(s + '/'))) return true;
       return false;
     }),
     mkdirSync: vi.fn(),
     readdirSync: vi.fn((p: string) => {
-      const prefix = String(p).replace(/\/$/, '') + '/';
+      const prefix = normalizePath(p).replace(/\/$/, '') + '/';
       const names = new Set<string>();
       for (const k of vfs.keys()) {
         if (k.startsWith(prefix)) {
@@ -28,12 +29,12 @@ vi.mock('fs', async () => {
       return Array.from(names);
     }),
     readFileSync: vi.fn((p: string) => {
-      const content = vfs.get(String(p));
+      const content = vfs.get(normalizePath(p));
       if (content === undefined) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       return content;
     }),
     writeFileSync: vi.fn((p: string, content: string) => {
-      vfs.set(String(p), String(content));
+      vfs.set(normalizePath(p), String(content));
     }),
     chmodSync: vi.fn(),
   };
