@@ -6,6 +6,10 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ### Changed
 
+- chore: Add a separate Windows release-build workflow that runs on manual
+  dispatch or version tags, builds unsigned x64 NSIS and portable artifacts on a
+  Windows runner, and uploads them only as short-lived GitHub Actions workflow
+  artifacts while signing remains deferred.
 - chore: Add unsigned local Windows electron-builder targets for x64 NSIS and
   portable artifacts with target-specific `setup` and `portable` artifact
   names, while leaving the existing macOS packaging config unchanged.
