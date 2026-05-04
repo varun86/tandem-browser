@@ -2,6 +2,15 @@
 
 All notable changes to Tandem Browser will be documented in this file.
 
+## Unreleased
+
+### Changed
+
+- **Startup scripts** - replaced the Unix-only `npm start` shell preflight with
+  a Node launcher that compiles, clears stale local API port listeners per
+  platform, preserves the macOS Electron quarantine cleanup, and starts Electron
+  without changing the public platform support status.
+
 ## [v1.1.0] - 2026-05-04
 
 Windows support foundation. This release adds the platform adapter layer that
