@@ -44,6 +44,8 @@ import { registerDataRoutes } from '../../routes/data';
 import { createMockContext, createTestApp } from '../helpers';
 import type { RouteContext } from '../../context';
 
+const normalizePath = (value: unknown) => String(value).replace(/\\/g, '/');
+
 describe('Data Routes', () => {
   let ctx: RouteContext;
   let app: ReturnType<typeof createTestApp>;
@@ -450,10 +452,10 @@ describe('Data Routes', () => {
 
     it('returns signed connect params for OpenClaw gateway auth', async () => {
       vi.mocked(fs.existsSync).mockImplementation((filePath: any) => (
-        typeof filePath === 'string' && filePath.includes('.openclaw/openclaw.json')
+        typeof filePath === 'string' && normalizePath(filePath).includes('.openclaw/openclaw.json')
       ));
       vi.mocked(fs.readFileSync).mockImplementation((filePath: any) => {
-        if (typeof filePath === 'string' && filePath.includes('.openclaw/openclaw.json')) {
+        if (typeof filePath === 'string' && normalizePath(filePath).includes('.openclaw/openclaw.json')) {
           return JSON.stringify({ gateway: { auth: { token: 'nested-token' } } }) as any;
         }
 

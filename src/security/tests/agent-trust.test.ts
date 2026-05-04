@@ -158,7 +158,11 @@ describe('AgentTrustStore', () => {
       await store.persist();
       const stat = fs.statSync(storePath);
       // mask off upper bits — on darwin stat may include other flags
-      expect(stat.mode & 0o777).toBe(0o600);
+      if (process.platform === 'win32') {
+        expect(stat.isFile()).toBe(true);
+      } else {
+        expect(stat.mode & 0o777).toBe(0o600);
+      }
     });
 
     it('does not persist agents with empty trusted lists', async () => {

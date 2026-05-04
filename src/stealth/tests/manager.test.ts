@@ -54,6 +54,8 @@ vi.mock('../../utils/logger', () => ({
 import fs from 'fs';
 import { StealthManager, deriveStealthSeed, loadOrCreateInstallSecret } from '../manager';
 
+const normalizePath = (value: unknown) => String(value).replace(/\\/g, '/');
+
 function makeMockSession() {
   return {
     getUserAgent: () => 'Electron/40',
@@ -102,7 +104,7 @@ describe('loadOrCreateInstallSecret()', () => {
     loadOrCreateInstallSecret();
 
     const chmodCall = vi.mocked(fs.chmodSync).mock.calls.find(
-      (c) => String(c[0]).endsWith('/config.json')
+      (c) => normalizePath(c[0]).endsWith('/config.json')
     );
     expect(chmodCall).toBeDefined();
     expect(chmodCall![1]).toBe(0o600);
@@ -110,7 +112,7 @@ describe('loadOrCreateInstallSecret()', () => {
 
   it('generates a new secret and writes config.json with mode 0o600 when config missing', () => {
     vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) => {
-      const s = String(p);
+      const s = normalizePath(p);
       if (s.endsWith('/config.json')) return false;
       return true; // dir exists
     });
@@ -120,7 +122,7 @@ describe('loadOrCreateInstallSecret()', () => {
     expect(secret).toMatch(/^[0-9a-f]{64}$/);
 
     const configWrite = vi.mocked(fs.writeFileSync).mock.calls.find(
-      (c) => String(c[0]).endsWith('/config.json')
+      (c) => normalizePath(c[0]).endsWith('/config.json')
     );
     expect(configWrite).toBeDefined();
     expect(configWrite![2]).toMatchObject({ mode: 0o600 });
@@ -152,7 +154,7 @@ describe('loadOrCreateInstallSecret()', () => {
     loadOrCreateInstallSecret();
 
     const chmodCall = vi.mocked(fs.chmodSync).mock.calls.find(
-      (c) => String(c[0]).endsWith('/config.json')
+      (c) => normalizePath(c[0]).endsWith('/config.json')
     );
     expect(chmodCall).toBeDefined();
     expect(chmodCall![1]).toBe(0o600);
@@ -167,7 +169,7 @@ describe('loadOrCreateInstallSecret()', () => {
     loadOrCreateInstallSecret();
 
     const configWrite = vi.mocked(fs.writeFileSync).mock.calls.find(
-      (c) => String(c[0]).endsWith('/config.json')
+      (c) => normalizePath(c[0]).endsWith('/config.json')
     );
     expect(configWrite).toBeDefined();
     const written = JSON.parse(String(configWrite![1]));
@@ -197,7 +199,7 @@ describe('StealthManager — per-install seed', () => {
   it('produces a different seed when the install secret differs (simulates a different install)', () => {
     // First install: no secret on disk → generates one
     vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) => {
-      return !String(p).endsWith('/config.json');
+      return !normalizePath(p).endsWith('/config.json');
     });
     const m1 = new StealthManager(makeMockSession(), 'persist:tandem');
     const seed1 = m1.getPartitionSeed();

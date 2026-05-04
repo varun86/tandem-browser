@@ -32,6 +32,8 @@ vi.mock('../../utils/security', () => ({
 import fs from 'fs';
 import { FormMemoryManager } from '../form-memory';
 
+const normalizePath = (value: unknown) => String(value).replace(/\\/g, '/');
+
 describe('FormMemoryManager — file permissions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,7 +42,7 @@ describe('FormMemoryManager — file permissions', () => {
   it('writes config.json with mode 0o600 when generating a new encryption key', () => {
     // forms dir exists, config.json does NOT exist → triggers key generation + config write
     vi.mocked(fs.existsSync).mockImplementation((p: fs.PathLike) => {
-      const s = String(p);
+      const s = normalizePath(p);
       if (s.endsWith('/config.json')) return false;
       return true;
     });
@@ -48,7 +50,7 @@ describe('FormMemoryManager — file permissions', () => {
     new FormMemoryManager();
 
     const configWrite = vi.mocked(fs.writeFileSync).mock.calls.find(
-      (c) => String(c[0]).endsWith('/config.json')
+      (c) => normalizePath(c[0]).endsWith('/config.json')
     );
     expect(configWrite).toBeDefined();
     const options = configWrite![2];
@@ -65,7 +67,7 @@ describe('FormMemoryManager — file permissions', () => {
     new FormMemoryManager();
 
     const chmodCall = vi.mocked(fs.chmodSync).mock.calls.find(
-      (c) => String(c[0]).endsWith('/config.json')
+      (c) => normalizePath(c[0]).endsWith('/config.json')
     );
     expect(chmodCall).toBeDefined();
     expect(chmodCall![1]).toBe(0o600);
@@ -82,7 +84,7 @@ describe('FormMemoryManager — file permissions', () => {
 
     expect(fs.writeFileSync).not.toHaveBeenCalled();
     const chmodCall = vi.mocked(fs.chmodSync).mock.calls.find(
-      (c) => String(c[0]).endsWith('/config.json')
+      (c) => normalizePath(c[0]).endsWith('/config.json')
     );
     expect(chmodCall).toBeDefined();
     expect(chmodCall![1]).toBe(0o600);
@@ -92,7 +94,7 @@ describe('FormMemoryManager — file permissions', () => {
     // config.json already exists (with a key), so init just loads it
     vi.mocked(fs.existsSync).mockReturnValue(true);
     vi.mocked(fs.readFileSync).mockImplementation((p: fs.PathOrFileDescriptor) => {
-      const s = String(p);
+      const s = normalizePath(p);
       if (s.endsWith('/config.json')) {
         return JSON.stringify({ formEncryptionKey: 'a'.repeat(64) });
       }
@@ -110,7 +112,7 @@ describe('FormMemoryManager — file permissions', () => {
     const expectedPath = '/tmp/tandem-test/forms/sentinel-domain-test.json';
 
     const domainWrite = vi.mocked(fs.writeFileSync).mock.calls.find(
-      (c) => c[0] === expectedPath
+      (c) => normalizePath(c[0]) === expectedPath
     );
     expect(domainWrite).toBeDefined();
     const options = domainWrite![2];
@@ -118,7 +120,7 @@ describe('FormMemoryManager — file permissions', () => {
     expect(options).toMatchObject({ mode: 0o600 });
 
     const chmodCall = vi.mocked(fs.chmodSync).mock.calls.find(
-      (c) => c[0] === expectedPath
+      (c) => normalizePath(c[0]) === expectedPath
     );
     expect(chmodCall).toBeDefined();
     expect(chmodCall![1]).toBe(0o600);
