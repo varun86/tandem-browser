@@ -1,9 +1,10 @@
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 import { tandemDir } from '../utils/paths';
 import { createLogger } from '../utils/logger';
 import { assertChromeExtensionId, assertSinglePathSegment, resolvePathWithinRoot } from '../utils/security';
+import { selectPlatform } from '../platform';
+import type { ChromeImportAdapter } from '../platform/types';
 
 const log = createLogger('ChromeImporter');
 
@@ -53,10 +54,12 @@ interface TandemMeta {
  * We find the latest version and copy from there.
  */
 export class ChromeExtensionImporter {
+  private chromeImportAdapter: ChromeImportAdapter;
   private profile: string;
   private tandemExtensionsDir: string;
 
-  constructor(profile: string = 'Default') {
+  constructor(profile: string = 'Default', chromeImportAdapter: ChromeImportAdapter = selectPlatform().chromeImport) {
+    this.chromeImportAdapter = chromeImportAdapter;
     this.profile = assertSinglePathSegment(profile, 'Chrome profile');
     this.tandemExtensionsDir = tandemDir('extensions');
   }
@@ -66,30 +69,7 @@ export class ChromeExtensionImporter {
    * Returns null if Chrome is not installed.
    */
   getChromeExtensionsDir(): string | null {
-    const platform = process.platform;
-    let chromeDir: string;
-
-    if (platform === 'darwin') {
-      chromeDir = path.join(
-        os.homedir(),
-        'Library', 'Application Support', 'Google', 'Chrome',
-        this.profile, 'Extensions'
-      );
-    } else if (platform === 'win32') {
-      const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-      chromeDir = path.join(
-        localAppData,
-        'Google', 'Chrome', 'User Data',
-        this.profile, 'Extensions'
-      );
-    } else {
-      // Linux
-      chromeDir = path.join(
-        os.homedir(),
-        '.config', 'google-chrome',
-        this.profile, 'Extensions'
-      );
-    }
+    const chromeDir = this.chromeImportAdapter.resolveProfileDataPaths(this.profile).extensionsPath;
 
     if (!fs.existsSync(chromeDir)) {
       return null;

@@ -41,9 +41,9 @@
 | Signed installer | supported | unsupported | unsupported | Windows installer planned in windows-support phase 13–14. |
 | Auto-update | supported | unsupported | unsupported | Windows feed planned in windows-support phase 15. |
 | Custom titlebar / window chrome | supported | supported | supported | Windows source runs use frameless shell-owned controls; public Windows release remains unannounced. |
-| Stealth UA matches host OS | supported | unsupported | partial | Windows UA persona planned in windows-support phase 7. |
-| Chrome bookmark + history import | supported | unsupported | partial | Windows path detection planned in windows-support phase 8. |
-| Chrome cookie import | partial | unsupported | partial | Windows DPAPI decrypt evaluated in windows-support phase 8. |
+| Stealth UA matches host OS | supported | supported | partial | Windows source runs present Chrome on Windows; public Windows release remains unannounced. |
+| Chrome bookmark + history import | supported | supported | partial | Windows source runs scan `%LOCALAPPDATA%\Google\Chrome\User Data\<Profile>\` for bookmark and history import. |
+| Chrome cookie import | partial | unsupported | partial | Windows encrypted cookie import requires DPAPI support and is intentionally not implemented in phase 8; no risky dependency was added. |
 | Native messaging host detection | supported | partial | supported | Windows uses filesystem fallback today; registry reader planned in windows-support phase 9. |
 | Voice transcription | supported | unsupported | partial | Windows Whisper fallback planned in windows-support phase 10. |
 | Video recorder with system audio | supported | unsupported | partial | Windows WASAPI loopback planned in windows-support phase 11. |

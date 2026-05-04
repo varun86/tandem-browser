@@ -1,10 +1,11 @@
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 import type { ConfigManager } from '../config/manager';
 import { tandemDir } from '../utils/paths';
 import { createLogger } from '../utils/logger';
-import { assertSinglePathSegment, resolvePathWithinRoot } from '../utils/security';
+import { resolvePathWithinRoot } from '../utils/security';
+import { selectPlatform } from '../platform';
+import type { ChromeImportAdapter } from '../platform/types';
 
 const log = createLogger('ChromeImport');
 
@@ -42,40 +43,58 @@ export interface ChromeImportStatus {
   historyFound: boolean;
   cookiesFound: boolean;
   profilePath: string;
+  cookiesImportSupported?: boolean;
+  cookiesImportStatus?: string;
 }
 
+interface SqliteDatabase {
+  prepare(sql: string): {
+    all(): unknown[];
+  };
+  close(): void;
+}
+
+type SqliteDatabaseFactory = new (filename: string, options: { readonly: boolean }) => SqliteDatabase;
+
 export class ChromeImporter {
+  private chromeImportAdapter: ChromeImportAdapter;
   private chromeBasePath: string;
   private chromeProfilePath: string;
   private tandemDir: string;
+  private sqliteDatabaseFactory: SqliteDatabaseFactory | null;
   private watcher: fs.FSWatcher | null = null;
   private syncDebounce: ReturnType<typeof setTimeout> | null = null;
   private configManager: ConfigManager | null = null;
   private lastSyncHash: string = '';
 
-  constructor(configManager?: ConfigManager) {
+  constructor(
+    configManager?: ConfigManager,
+    chromeImportAdapter: ChromeImportAdapter = selectPlatform().chromeImport,
+    tandemDataDir: string = tandemDir(),
+    sqliteDatabaseFactory: SqliteDatabaseFactory | null = null,
+  ) {
     this.configManager = configManager ?? null;
-    // Detect Chrome data path per platform
-    const platform = process.platform;
-    if (platform === 'darwin') {
-      this.chromeBasePath = path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome');
-    } else if (platform === 'win32') {
-      this.chromeBasePath = path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'User Data');
-    } else {
-      // Linux
-      this.chromeBasePath = path.join(os.homedir(), '.config', 'google-chrome');
-    }
+    this.chromeImportAdapter = chromeImportAdapter;
+    this.sqliteDatabaseFactory = sqliteDatabaseFactory;
+    this.chromeBasePath = this.chromeImportAdapter.getDefaultChromeBasePath();
     const profile = this.configManager?.getConfig().sync.chromeProfile ?? 'Default';
     this.chromeProfilePath = this.resolveChromeProfilePath(profile);
-    this.tandemDir = tandemDir();
+    this.tandemDir = tandemDataDir;
     if (!fs.existsSync(this.tandemDir)) {
       fs.mkdirSync(this.tandemDir, { recursive: true });
     }
   }
 
   private resolveChromeProfilePath(profileDir: string): string {
-    const safeProfileDir = assertSinglePathSegment(profileDir, 'Chrome profile');
-    return resolvePathWithinRoot(this.chromeBasePath, safeProfileDir);
+    return this.chromeImportAdapter.resolveProfilePath(profileDir);
+  }
+
+  private resolveChromeProfileDataPaths(profileDir: string): ReturnType<ChromeImportAdapter['resolveProfileDataPaths']> {
+    return this.chromeImportAdapter.resolveProfileDataPaths(profileDir);
+  }
+
+  private getCurrentChromeProfileDataPaths(): ReturnType<ChromeImportAdapter['resolveProfileDataPaths']> {
+    return this.resolveChromeProfileDataPaths(path.basename(this.chromeProfilePath));
   }
 
   /** List available Chrome profiles */
@@ -89,13 +108,13 @@ export class ChromeImporter {
         if (!entry.isDirectory()) continue;
         // Chrome profiles are 'Default', 'Profile 1', 'Profile 2', etc.
         if (entry.name === 'Default' || entry.name.startsWith('Profile ')) {
-          const profilePath = this.resolveChromeProfilePath(entry.name);
-          const hasBookmarks = fs.existsSync(resolvePathWithinRoot(profilePath, 'Bookmarks'));
+          const profilePaths = this.resolveChromeProfileDataPaths(entry.name);
+          const hasBookmarks = fs.existsSync(profilePaths.bookmarksPath);
 
           // Try to read profile name from Preferences
           let displayName = entry.name;
           try {
-            const prefs = JSON.parse(fs.readFileSync(resolvePathWithinRoot(profilePath, 'Preferences'), 'utf-8'));
+            const prefs = JSON.parse(fs.readFileSync(profilePaths.preferencesPath, 'utf-8'));
             if (prefs.profile?.name) displayName = `${prefs.profile.name} (${entry.name})`;
           } catch { /* use folder name */ }
 
@@ -123,7 +142,7 @@ export class ChromeImporter {
   startSync(): boolean {
     if (this.watcher) return true; // Already watching
 
-    const bookmarksPath = resolvePathWithinRoot(this.chromeProfilePath, 'Bookmarks');
+    const bookmarksPath = this.getCurrentChromeProfileDataPaths().bookmarksPath;
     if (!fs.existsSync(bookmarksPath)) {
       log.warn('📚 Chrome Bookmarks not found at:', bookmarksPath);
       return false;
@@ -196,19 +215,23 @@ export class ChromeImporter {
 
   /** Check what Chrome data is available */
   getStatus(): ChromeImportStatus {
+    const profilePaths = this.getCurrentChromeProfileDataPaths();
+    const cookieSupport = this.chromeImportAdapter.getCookieImportSupport();
     return {
       chromeFound: fs.existsSync(this.chromeProfilePath),
-      bookmarksFound: fs.existsSync(resolvePathWithinRoot(this.chromeProfilePath, 'Bookmarks')),
-      historyFound: fs.existsSync(resolvePathWithinRoot(this.chromeProfilePath, 'History')),
-      cookiesFound: fs.existsSync(resolvePathWithinRoot(this.chromeProfilePath, 'Cookies')),
+      bookmarksFound: fs.existsSync(profilePaths.bookmarksPath),
+      historyFound: fs.existsSync(profilePaths.historyPath),
+      cookiesFound: fs.existsSync(profilePaths.cookiesPath),
       profilePath: this.chromeProfilePath,
+      cookiesImportSupported: cookieSupport.encryptedStore,
+      cookiesImportStatus: cookieSupport.message,
     };
   }
 
   /** Import Chrome bookmarks → ~/.tandem/bookmarks.json */
   importBookmarks(): { ok: boolean; count: number; error?: string } {
     try {
-      const bookmarksPath = resolvePathWithinRoot(this.chromeProfilePath, 'Bookmarks');
+      const bookmarksPath = this.getCurrentChromeProfileDataPaths().bookmarksPath;
       if (!fs.existsSync(bookmarksPath)) {
         return { ok: false, count: 0, error: 'Chrome Bookmarks file not found' };
       }
@@ -285,7 +308,7 @@ export class ChromeImporter {
   /** Import Chrome history → ~/.tandem/history.json (last 1000 entries) */
   importHistory(): { ok: boolean; count: number; error?: string } {
     try {
-      const historyPath = path.join(this.chromeProfilePath, 'History');
+      const historyPath = this.getCurrentChromeProfileDataPaths().historyPath;
       if (!fs.existsSync(historyPath)) {
         return { ok: false, count: 0, error: 'Chrome History file not found' };
       }
@@ -294,8 +317,7 @@ export class ChromeImporter {
       const tmpPath = resolvePathWithinRoot(this.tandemDir, '.chrome-history-tmp');
       fs.copyFileSync(historyPath, tmpPath);
 
-       
-      const Database = require('better-sqlite3');
+      const Database = this.sqliteDatabaseFactory ?? (require('better-sqlite3') as SqliteDatabaseFactory);
       const db = new Database(tmpPath, { readonly: true });
 
       const rows = db.prepare(`
@@ -394,10 +416,15 @@ export class ChromeImporter {
         return { ok: true, count };
       }
 
+      const cookieSupport = this.chromeImportAdapter.getCookieImportSupport();
+      const error = cookieSupport.status === 'unsupported'
+        ? `${cookieSupport.message} JSON fallback path: ${path.join(this.tandemDir, 'chrome-cookies.json')}`
+        : `Chrome cookies are encrypted. To import: (1) restart Chrome with --remote-debugging-port=9222, or (2) place decrypted cookies in ${path.join(this.tandemDir, 'chrome-cookies.json')}`;
+
       return {
         ok: false,
         count: 0,
-        error: `Chrome cookies are encrypted. To import: (1) restart Chrome with --remote-debugging-port=9222, or (2) place decrypted cookies in ${path.join(this.tandemDir, 'chrome-cookies.json')}`,
+        error,
       };
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

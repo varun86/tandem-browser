@@ -4,6 +4,47 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
+## [v1.6.0] - 2026-05-04
+
+Windows support Phase 8. Tandem now resolves Chrome profile paths through the
+chrome-import platform adapter, so Windows source runs can scan Chrome profiles
+under LOCALAPPDATA and import bookmarks plus history while the macOS Chrome
+import path remains unchanged.
+
+### Added
+
+- **Windows Chrome import adapter** (`src/platform/chrome-import/`) - added
+  Windows Chrome profile detection under
+  `%LOCALAPPDATA%\Google\Chrome\User Data\<Profile>\`.
+- **Chrome import fixture coverage** (`src/platform/tests/platform.test.ts`) -
+  added regression tests for the macOS profile path, macOS bookmark import
+  through the adapter, Windows profile listing, Windows bookmark/history import,
+  and Windows cookie status.
+
+### Changed
+
+- **Browser data Chrome importer** (`src/import/chrome-importer.ts`) - moved
+  Chrome profile path resolution onto the platform adapter and kept bookmark,
+  history, sync, and status checks using adapter-resolved profile data paths.
+- **Chrome extension importer** (`src/extensions/chrome-importer.ts`) - reuses
+  the chrome-import platform adapter for Chrome extension profile paths.
+- **Runtime bootstrap** (`src/bootstrap/runtime.ts`) - creates the Chrome
+  importer through the selected platform adapter.
+- **Platform support matrix** (`docs/platform-support.md`) - marks Windows
+  Chrome bookmark/history import as supported and documents Windows encrypted
+  cookie import as unsupported.
+
+### Technical Details
+
+- macOS still resolves Chrome profiles under
+  `~/Library/Application Support/Google/Chrome/<Profile>`.
+- Windows resolves Chrome profiles under
+  `%LOCALAPPDATA%\Google\Chrome\User Data\<Profile>`.
+- Windows encrypted Chrome cookie import remains unsupported because DPAPI
+  support would require native integration or an extra dependency; CDP and
+  pre-exported JSON fallback paths remain available.
+- No new dependency was added.
+
 ## [v1.5.0] - 2026-05-04
 
 Windows support Phase 7. Tandem now builds stealth UA and UA-CH values through

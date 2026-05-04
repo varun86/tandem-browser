@@ -24,6 +24,20 @@ export interface ProcessAdapter {
 export interface ChromeImportAdapter {
   createImporter(configManager?: ConfigManager): ChromeImporter;
   getDefaultChromeBasePath(): string;
+  resolveProfilePath(profileDir: string): string;
+  resolveProfileDataPaths(profileDir: string): {
+    profilePath: string;
+    bookmarksPath: string;
+    historyPath: string;
+    cookiesPath: string;
+    preferencesPath: string;
+    extensionsPath: string;
+  };
+  getCookieImportSupport(): {
+    encryptedStore: boolean;
+    status: 'partial' | 'unsupported';
+    message: string;
+  };
   getUnavailableStatus(profilePath?: string): ChromeImportStatus;
 }
 
