@@ -6,6 +6,10 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ### Changed
 
+- **CI verification matrix** - `npm run verify` now runs on Ubuntu, macOS, and
+  Windows in GitHub Actions, with fail-fast disabled, Linux-only coverage
+  upload, and only macOS blocking while Linux remains secondary and Windows is
+  still being built out.
 - **Startup scripts** - replaced the Unix-only `npm start` shell preflight with
   a Node launcher that compiles, clears stale local API port listeners per
   platform, preserves the macOS Electron quarantine cleanup, and starts Electron
