@@ -359,7 +359,7 @@ contributors, not yet a polished mass-user release.
 - Secondary platform: Linux
 - Windows: validated as a remote agent host (VS Code + Claude Code over Tailscale)
 - Binaries: signed & notarized macOS Apple Silicon builds published on [GitHub Releases](https://github.com/hydro13/tandem-browser/releases), starting at v1.0.0
-- Current version: `1.7.0`
+- Current version: `1.8.0`
 - Package metadata: [package.json](package.json)
 
 ## Community

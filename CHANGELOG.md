@@ -4,6 +4,39 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
+## [v1.8.0] - 2026-05-04
+
+Windows support Phase 10. Tandem now routes native speech transcription through
+the platform voice adapter, preserving macOS Apple Speech behavior and adding a
+Windows fallback that uses user-installed Whisper when `whisper.exe` is
+available on `PATH`.
+
+### Added
+
+- **Windows voice adapter** (`src/platform/voice/`) - detects `whisper.exe`
+  through Windows-style `PATH` lookup and returns a clear user-facing status
+  when Whisper is not installed.
+- **Voice adapter coverage** (`src/platform/tests/platform.test.ts`) - added
+  regression coverage for the macOS Apple Speech backend, Windows Whisper
+  lookup, and the missing-Whisper error path.
+
+### Changed
+
+- **Speech transcription pipeline** (`src/voice/speech-transcriber.ts`) - moved
+  backend selection out of the shared transcriber and into platform adapters.
+- **IPC speech handlers** (`src/ipc/handlers.ts`) - now call the selected
+  platform voice adapter for backend status and transcription.
+- **Platform support matrix** (`docs/platform-support.md`) - marks Windows voice
+  transcription as partial for source runs with user-installed Whisper.
+
+### Technical Details
+
+- macOS still prefers the bundled or development `tandem-speech` Apple Speech
+  binary and keeps the existing Whisper fallback when Apple Speech is missing.
+- Windows support intentionally does not download models, bundle Whisper, or add
+  Windows audio capture code.
+- No new dependency was added.
+
 ## [v1.7.0] - 2026-05-04
 
 Windows support Phase 9. Tandem now detects Chrome native messaging hosts on

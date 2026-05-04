@@ -13,7 +13,7 @@ import { createDarwinSecretsAdapter, createUnsupportedSecretsAdapter } from './s
 import { createDarwinStealthUaAdapter, createUnsupportedStealthUaAdapter, createWindowsStealthUaAdapter } from './stealth-ua';
 import type { PlatformAdapter } from './types';
 import { createDarwinVideoAudioAdapter, createUnsupportedVideoAudioAdapter } from './video-audio';
-import { createDarwinVoiceAdapter, createUnsupportedVoiceAdapter } from './voice';
+import { createDarwinVoiceAdapter, createLinuxVoiceAdapter, createUnsupportedVoiceAdapter, createWindowsVoiceAdapter } from './voice';
 import {
   createDarwinWindowChromeAdapter,
   createLinuxWindowChromeAdapter,
@@ -69,7 +69,11 @@ function createStubPlatform(id: PlatformId): PlatformAdapter {
       : id === 'linux'
         ? createLinuxNativeMessagingAdapter()
         : createUnsupportedNativeMessagingAdapter(id),
-    voice: createUnsupportedVoiceAdapter(id),
+    voice: id === 'win32'
+      ? createWindowsVoiceAdapter()
+      : id === 'linux'
+        ? createLinuxVoiceAdapter()
+        : createUnsupportedVoiceAdapter(id),
     videoAudio: createUnsupportedVideoAudioAdapter(id),
     windowChrome: id === 'win32'
       ? createWindowsWindowChromeAdapter()

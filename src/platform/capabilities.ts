@@ -72,7 +72,7 @@ const CAPABILITY_PROFILES: Record<PlatformId, PlatformSupportProfile> = {
       chromeBookmarkHistoryImport: { status: 'supported', notes: 'Windows Chrome bookmark and history import scans LOCALAPPDATA/Google/Chrome/User Data profiles.' },
       chromeCookieImport: unsupportedCapability('Windows Chrome cookie import is not implemented; encrypted cookies require DPAPI support and no dependency was added in phase 8.'),
       nativeMessagingHostDetection: { status: 'supported', notes: 'Windows native messaging host detection reads Chrome registry keys and keeps the filesystem fallback.' },
-      voiceTranscription: unsupportedCapability('Windows Whisper fallback planned in windows-support phase 10.'),
+      voiceTranscription: { status: 'partial', notes: 'Windows voice transcription uses whisper.exe when users install Whisper and place it on PATH; Tandem does not bundle Whisper or download models.' },
       videoRecorderSystemAudio: unsupportedCapability('Windows WASAPI loopback planned in windows-support phase 11.'),
       keyboardShortcutsLabels: { status: 'partial', notes: 'Cross-platform labels finalized in windows-support phase 12.' },
       secretsAtRest: unsupportedCapability('Unified safeStorage adapter planned in windows-support phase 5.'),

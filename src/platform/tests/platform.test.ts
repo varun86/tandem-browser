@@ -5,6 +5,7 @@ import path from 'path';
 import { NotImplementedError, getPlatformCapabilities, selectPlatform } from '..';
 import { ChromeImporter } from '../../import/chrome-importer';
 import { createDarwinChromeImportAdapter, createWindowsChromeImportAdapter } from '../chrome-import';
+import { createDarwinVoiceAdapter, createWindowsVoiceAdapter, findWindowsWhisperBinary } from '../voice';
 
 function writeChromeBookmarks(bookmarksPath: string): void {
   fs.writeFileSync(bookmarksPath, JSON.stringify({
@@ -80,8 +81,10 @@ describe('selectPlatform', () => {
     expect(platform.capabilities.capabilities.windowChrome.status).toBe('supported');
     expect(platform.capabilities.capabilities.userDataDirectory.status).toBe('supported');
     expect(platform.capabilities.capabilities.nativeMessagingHostDetection.status).toBe('supported');
+    expect(platform.capabilities.capabilities.voiceTranscription.status).toBe('partial');
     expect(() => platform.chromeImport.getUnavailableStatus()).not.toThrow();
     expect(() => platform.nativeMessaging.createDetectionAdapter().getNativeMessagingDirs()).not.toThrow();
+    expect(() => platform.voice.detectBackend()).not.toThrow();
     expect(platform.windowChrome.getBrowserWindowOptions()).toMatchObject({
       frame: false,
     });
@@ -201,6 +204,39 @@ describe('selectPlatform', () => {
     expect(adapter.getCookieImportSupport()).toMatchObject({
       encryptedStore: false,
       status: 'unsupported',
+    });
+  });
+
+  it('keeps the Darwin voice adapter on Apple Speech when the native binary exists', () => {
+    const adapter = createDarwinVoiceAdapter({
+      resourcesPath: '/Applications/Tandem.app/Contents/Resources',
+      existsSync: (candidate) => candidate === path.join('/Applications/Tandem.app/Contents/Resources', 'native', 'tandem-speech'),
+    });
+
+    expect(adapter.detectBackend()).toBe('apple');
+  });
+
+  it('detects whisper.exe through Windows-style PATH lookup', () => {
+    const whisperPath = path.win32.join('C:\\Tools\\Whisper', 'whisper.exe');
+
+    expect(findWindowsWhisperBinary({
+      env: { Path: 'C:\\Windows\\System32;C:\\Tools\\Whisper' },
+      existsSync: (candidate) => candidate === whisperPath,
+    })).toBe(whisperPath);
+  });
+
+  it('returns a clear Windows voice status when whisper.exe is missing', async () => {
+    const adapter = createWindowsVoiceAdapter({
+      env: { Path: 'C:\\Windows\\System32' },
+      existsSync: () => false,
+    });
+
+    const result = await adapter.transcribeAudio(Buffer.from('fixture'), 'nl-BE');
+
+    expect(adapter.detectBackend()).toBe('none');
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('whisper.exe on PATH'),
     });
   });
 });

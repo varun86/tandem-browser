@@ -6,44 +6,24 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('SpeechTranscriber');
 
-type TranscriberBackend = 'apple' | 'whisper' | 'none';
+export type TranscriberBackend = 'apple' | 'whisper' | 'none';
 
-function getAppleSpeechBinary(): string {
-  // Check bundled binary first, then dev location
-  const bundled = path.join(process.resourcesPath || '', 'native', 'tandem-speech');
-  const dev = path.join(__dirname, '..', '..', 'native', 'speech', 'tandem-speech');
-  if (fs.existsSync(bundled)) return bundled;
-  if (fs.existsSync(dev)) return dev;
-  return '';
+export interface TranscriberBackendSelection {
+  backend: TranscriberBackend;
+  binary?: string;
+  unavailableMessage?: string;
 }
 
-function getWhisperBinary(): string {
-  // Common locations
-  const locations = [
-    '/opt/homebrew/bin/whisper',
-    '/usr/local/bin/whisper',
-    '/usr/bin/whisper',
-  ];
-  for (const loc of locations) {
-    if (fs.existsSync(loc)) return loc;
-  }
-  return '';
-}
-
-export function detectBackend(): TranscriberBackend {
-  if (process.platform === 'darwin' && getAppleSpeechBinary()) return 'apple';
-  if (getWhisperBinary()) return 'whisper';
-  return 'none';
-}
-
-export async function transcribeAudio(
+export async function transcribeAudioWithBackend(
   audioBuffer: Buffer,
+  selection: TranscriberBackendSelection,
   language = 'nl-BE'
 ): Promise<{ ok: boolean; text?: string; error?: string }> {
-  const backend = detectBackend();
-
-  if (backend === 'none') {
-    return { ok: false, error: 'No speech transcription backend available. Install whisper: pip install openai-whisper' };
+  if (selection.backend === 'none' || !selection.binary) {
+    return {
+      ok: false,
+      error: selection.unavailableMessage ?? 'No speech transcription backend available. Install whisper: pip install openai-whisper',
+    };
   }
 
   // Write audio buffer to temp file — use .webm since MediaRecorder outputs webm
@@ -55,11 +35,10 @@ export async function transcribeAudio(
   }
 
   try {
-    if (backend === 'apple') {
-      return await transcribeWithApple(tmpFile, language);
-    } else {
-      return await transcribeWithWhisper(tmpFile, language);
+    if (selection.backend === 'apple') {
+      return await transcribeWithApple(tmpFile, selection.binary, language);
     }
+    return await transcribeWithWhisper(tmpFile, selection.binary, language);
   } finally {
     try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
   }
@@ -87,8 +66,7 @@ function convertToM4a(inputFile: string): Promise<string> {
   });
 }
 
-async function transcribeWithApple(audioFile: string, language: string): Promise<{ ok: boolean; text?: string; error?: string }> {
-  const binary = getAppleSpeechBinary();
+async function transcribeWithApple(audioFile: string, binary: string, language: string): Promise<{ ok: boolean; text?: string; error?: string }> {
   const appleLanguage = language === 'nl-BE' ? 'nl-NL' : language;
 
   // Convert webm → m4a (Apple Speech doesn't accept webm)
@@ -126,9 +104,8 @@ async function transcribeWithApple(audioFile: string, language: string): Promise
   });
 }
 
-function transcribeWithWhisper(audioFile: string, language: string): Promise<{ ok: boolean; text?: string; error?: string }> {
+function transcribeWithWhisper(audioFile: string, binary: string, language: string): Promise<{ ok: boolean; text?: string; error?: string }> {
   return new Promise((resolve) => {
-    const binary = getWhisperBinary();
     // Map language code: nl-BE → nl
     const whisperLang = language.split('-')[0];
 

@@ -30,6 +30,7 @@ import { createLogger } from '../utils/logger';
 import { IpcChannels } from '../shared/ipc-channels';
 import { buildOwnershipContextForTab, buildOwnershipContextForTabId } from '../tabs/runtime-context';
 import { wingmanAlert } from '../notifications/alert';
+import { selectPlatform } from '../platform';
 
 const log = createLogger('IpcHandlers');
 
@@ -66,6 +67,7 @@ export function syncTabsToContext(tabManager: TabManager, contextBridge: Context
 }
 
 export function registerIpcHandlers(deps: IpcDeps): void {
+  const platform = selectPlatform();
   const {
     win: _win, tabManager, panelManager, drawManager, voiceManager,
     behaviorObserver, siteMemory, formMemory, contextBridge,
@@ -311,15 +313,13 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
   // ═══ Native Speech Transcription (Apple Speech / Whisper) ═══
   ipcMain.handle(IpcChannels.TRANSCRIBE_AUDIO, async (_event, data: { buffer: ArrayBuffer; language?: string }) => {
-    const { transcribeAudio } = await import('../voice/speech-transcriber');
     const buffer = Buffer.from(data.buffer);
     const language = data.language || 'nl-BE';
-    return transcribeAudio(buffer, language);
+    return platform.voice.transcribeAudio(buffer, language);
   });
 
   ipcMain.handle(IpcChannels.GET_SPEECH_BACKEND, async () => {
-    const { detectBackend } = await import('../voice/speech-transcriber');
-    return { backend: detectBackend() };
+    return { backend: platform.voice.detectBackend() };
   });
 
 

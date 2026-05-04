@@ -45,7 +45,7 @@
 | Chrome bookmark + history import | supported | supported | partial | Windows source runs scan `%LOCALAPPDATA%\Google\Chrome\User Data\<Profile>\` for bookmark and history import. |
 | Chrome cookie import | partial | unsupported | partial | Windows encrypted cookie import requires DPAPI support and is intentionally not implemented in phase 8; no risky dependency was added. |
 | Native messaging host detection | supported | supported | supported | Windows reads Chrome native messaging host registry keys under HKCU/HKLM and keeps the filesystem fallback. |
-| Voice transcription | supported | unsupported | partial | Windows Whisper fallback planned in windows-support phase 10. |
+| Voice transcription | supported | partial | partial | Windows source runs can use user-installed `whisper.exe` on `PATH`; Tandem does not bundle Whisper or download models. |
 | Video recorder with system audio | supported | unsupported | partial | Windows WASAPI loopback planned in windows-support phase 11. |
 | Keyboard shortcuts and labels | supported | partial | supported | Cross-platform labels finalized in windows-support phase 12. |
 | Secrets at rest | supported | unsupported | supported | Unified `safeStorage` adapter planned in windows-support phase 5. |
