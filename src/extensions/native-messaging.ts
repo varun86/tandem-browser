@@ -32,6 +32,18 @@ export interface NativeMessagingHostAccessDecision {
   reason: string;
 }
 
+export interface NativeMessagingManifestLocation {
+  manifestPath: string;
+  source: 'filesystem' | 'registry';
+  registryKey?: string;
+}
+
+export interface NativeMessagingDetectionAdapter {
+  getNativeMessagingDirs(): { path: string; exists: boolean }[];
+  getManifestLocations(): NativeMessagingManifestLocation[];
+  mirrorManifestsToTandemDir(): void;
+}
+
 // Host aliases used by extension variants that expect the same native helper.
 const HOST_ALIASES: Record<string, string> = {
   'com.1password.1password7': 'com.1password.1password',
@@ -71,47 +83,14 @@ export class NativeMessagingSetup {
   private missingHosts: string[] = [];
   private apiSupported = false;
 
+  constructor(private readonly detectionAdapter: NativeMessagingDetectionAdapter) {}
+
   /**
    * Get the platform-specific directories where native messaging host
    * manifests are installed.
    */
   getNativeMessagingDirs(): { path: string; exists: boolean }[] {
-    const dirs: string[] = [];
-
-    switch (process.platform) {
-      case 'darwin':
-        // macOS: system-wide and per-user directories
-        dirs.push('/Library/Google/Chrome/NativeMessagingHosts');
-        dirs.push(path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome', 'NativeMessagingHosts'));
-        // Chromium (non-Google-branded) directories
-        dirs.push(path.join(os.homedir(), 'Library', 'Application Support', 'Chromium', 'NativeMessagingHosts'));
-        // Tandem Browser / Electron app-specific directories
-        // Electron 40 does not expose setNativeMessagingHostDirectory(); it reads from
-        // the app's own userData directory. We mirror manifests there at startup.
-        dirs.push(path.join(os.homedir(), 'Library', 'Application Support', 'Tandem Browser', 'NativeMessagingHosts'));
-        dirs.push(path.join(os.homedir(), 'Library', 'Application Support', 'tandem-browser', 'NativeMessagingHosts'));
-        dirs.push(path.join(os.homedir(), 'Library', 'Application Support', 'Electron', 'NativeMessagingHosts'));
-        break;
-
-      case 'linux':
-        // Linux: system-wide and per-user directories
-        dirs.push('/etc/opt/chrome/native-messaging-hosts');
-        dirs.push(path.join(os.homedir(), '.config', 'google-chrome', 'NativeMessagingHosts'));
-        // Chromium
-        dirs.push(path.join(os.homedir(), '.config', 'chromium', 'NativeMessagingHosts'));
-        break;
-
-      case 'win32': {
-        // Windows: native messaging hosts are registered in the Windows Registry.
-        // We cannot read registry values from Node.js without native modules,
-        // so we check common filesystem paths where hosts may also be installed.
-        const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-        dirs.push(path.join(localAppData, 'Google', 'Chrome', 'User Data', 'NativeMessagingHosts'));
-        break;
-      }
-    }
-
-    return dirs.map(d => ({ path: d, exists: fs.existsSync(d) }));
+    return this.detectionAdapter.getNativeMessagingDirs();
   }
 
   /**
@@ -119,59 +98,46 @@ export class NativeMessagingSetup {
    * Reads each .json manifest file and checks if the referenced binary exists.
    */
   detectHosts(): NativeMessagingHost[] {
-    const dirs = this.getNativeMessagingDirs();
     const hosts: NativeMessagingHost[] = [];
     const seenNames = new Set<string>();
 
-    for (const dir of dirs) {
-      if (!dir.exists) continue;
-
+    for (const location of this.detectionAdapter.getManifestLocations()) {
       try {
-        const files = fs.readdirSync(dir.path)
-          .filter(f => f.endsWith('.json'));
+        const manifest = JSON.parse(fs.readFileSync(location.manifestPath, 'utf-8'));
 
-        for (const file of files) {
-          const manifestPath = path.join(dir.path, file);
-          try {
-            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+        if (!manifest.name || typeof manifest.name !== 'string') continue;
+        if (seenNames.has(manifest.name)) continue;
+        seenNames.add(manifest.name);
 
-            if (!manifest.name || typeof manifest.name !== 'string') continue;
-            if (seenNames.has(manifest.name)) continue;
-            seenNames.add(manifest.name);
+        const binaryPath = manifest.path || '';
+        const binaryExists = binaryPath ? fs.existsSync(binaryPath) : false;
 
-            const binaryPath = manifest.path || '';
-            const binaryExists = binaryPath ? fs.existsSync(binaryPath) : false;
-
-            const allowedExtensions: string[] = [];
-            if (Array.isArray(manifest.allowed_origins)) {
-              for (const origin of manifest.allowed_origins) {
-                // Format: "chrome-extension://extensionid/"
-                const match = typeof origin === 'string' ? origin.match(/chrome-extension:\/\/([a-p]{32})\/?/) : null;
-                if (match) allowedExtensions.push(match[1]);
-              }
-            }
-            if (Array.isArray(manifest.allowed_extensions)) {
-              for (const ext of manifest.allowed_extensions) {
-                if (typeof ext === 'string' && !allowedExtensions.includes(ext)) {
-                  allowedExtensions.push(ext);
-                }
-              }
-            }
-
-            hosts.push({
-              name: manifest.name,
-              description: manifest.description || '',
-              binaryPath,
-              binaryExists,
-              allowedExtensions,
-              manifestPath,
-            });
-          } catch {
-            // Invalid JSON or unreadable file — skip
+        const allowedExtensions: string[] = [];
+        if (Array.isArray(manifest.allowed_origins)) {
+          for (const origin of manifest.allowed_origins) {
+            // Format: "chrome-extension://extensionid/"
+            const match = typeof origin === 'string' ? origin.match(/chrome-extension:\/\/([a-p]{32})\/?/) : null;
+            if (match) allowedExtensions.push(match[1]);
           }
         }
+        if (Array.isArray(manifest.allowed_extensions)) {
+          for (const ext of manifest.allowed_extensions) {
+            if (typeof ext === 'string' && !allowedExtensions.includes(ext)) {
+              allowedExtensions.push(ext);
+            }
+          }
+        }
+
+        hosts.push({
+          name: manifest.name,
+          description: manifest.description || '',
+          binaryPath,
+          binaryExists,
+          allowedExtensions,
+          manifestPath: location.manifestPath,
+        });
       } catch {
-        // Directory not readable — skip
+        // Invalid JSON or unreadable file — skip
       }
     }
 
@@ -203,7 +169,7 @@ export class NativeMessagingSetup {
     // Actual Tandem userData: ~/Library/Application Support/Tandem Browser/
     // We copy every manifest found in Chrome/Chromium dirs into the Tandem dir so
     // that Electron's internal Chromium code finds them automatically.
-    this.mirrorManifestsToTandemDir();
+    this.detectionAdapter.mirrorManifestsToTandemDir();
 
     // Attempt to configure each existing directory
     let apiChecked = false;

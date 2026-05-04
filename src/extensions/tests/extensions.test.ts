@@ -6,8 +6,14 @@ import { GALLERY_DEFAULTS } from '../gallery-defaults';
 import { UpdateChecker } from '../update-checker';
 import { ExtensionLoader } from '../loader';
 import { nmProxy } from '../nm-proxy';
+import { NativeMessagingSetup } from '../native-messaging';
+import {
+  createDarwinNativeMessagingDetectionAdapter,
+  createWindowsNativeMessagingDetectionAdapter,
+} from '../../platform/native-messaging';
 import AdmZip from 'adm-zip';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { tandemDir } from '../../utils/paths';
 
@@ -56,6 +62,19 @@ function buildCrx3(zipPayload: Buffer): Buffer {
   headerSize.writeUInt32LE(fakeHeader.length, 0);
 
   return Buffer.concat([magic, version, headerSize, fakeHeader, zipPayload]);
+}
+
+function writeNativeMessagingManifest(root: string, name: string, binaryPath: string): string {
+  const manifestPath = path.join(root, `${name}.json`);
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(manifestPath, JSON.stringify({
+    name,
+    description: `${name} fixture`,
+    path: binaryPath,
+    type: 'stdio',
+    allowed_origins: ['chrome-extension://aeblfdkhhhdcdjpifhhbdiojplfjncoa/'],
+  }), 'utf-8');
+  return manifestPath;
 }
 
 // ─── UpdateChecker Version Comparison Tests ─────────────────────────────────
@@ -509,6 +528,62 @@ describe('Gallery Defaults', () => {
 });
 
 // ─── Chrome Importer Tests ────────────────────────────────────────────────────
+
+describe('Native messaging platform detection', () => {
+  it('keeps macOS native messaging directories unchanged through the adapter', () => {
+    const dirs = createDarwinNativeMessagingDetectionAdapter()
+      .getNativeMessagingDirs()
+      .map((dir) => dir.path);
+
+    expect(dirs).toEqual([
+      '/Library/Google/Chrome/NativeMessagingHosts',
+      path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome', 'NativeMessagingHosts'),
+      path.join(os.homedir(), 'Library', 'Application Support', 'Chromium', 'NativeMessagingHosts'),
+      path.join(os.homedir(), 'Library', 'Application Support', 'Tandem Browser', 'NativeMessagingHosts'),
+      path.join(os.homedir(), 'Library', 'Application Support', 'tandem-browser', 'NativeMessagingHosts'),
+      path.join(os.homedir(), 'Library', 'Application Support', 'Electron', 'NativeMessagingHosts'),
+    ]);
+  });
+
+  it('detects Windows hosts from HKCU/HKLM registry manifests plus the filesystem fallback', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-native-messaging-'));
+    const registryDir = path.join(root, 'registry');
+    const fallbackDir = path.join(root, 'Chrome', 'User Data', 'NativeMessagingHosts');
+    const binaryPath = path.join(root, 'fixture-host.exe');
+    fs.writeFileSync(binaryPath, 'fixture binary', 'utf-8');
+
+    const hkcuManifest = writeNativeMessagingManifest(registryDir, 'com.tandem.hkcu', binaryPath);
+    const hklmManifest = writeNativeMessagingManifest(registryDir, 'com.tandem.hklm', binaryPath);
+    writeNativeMessagingManifest(fallbackDir, 'com.tandem.filesystem', binaryPath);
+    const registryReads: string[] = [];
+
+    try {
+      const adapter = createWindowsNativeMessagingDetectionAdapter({
+        chromeUserDataNativeMessagingDir: fallbackDir,
+        registryReader: (hive, subkey) => {
+          registryReads.push(`${hive}\\${subkey}`);
+          return hive === 'HKCU' ? [hkcuManifest] : [hklmManifest];
+        },
+      });
+      const setup = new NativeMessagingSetup(adapter);
+
+      const hosts = setup.detectHosts();
+
+      expect(registryReads).toEqual([
+        'HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts',
+        'HKLM\\Software\\Google\\Chrome\\NativeMessagingHosts',
+      ]);
+      expect(hosts.map((host) => host.name)).toEqual([
+        'com.tandem.hkcu',
+        'com.tandem.hklm',
+        'com.tandem.filesystem',
+      ]);
+      expect(hosts.every((host) => host.binaryExists)).toBe(true);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('Chrome Importer', () => {
   it('detects correct Chrome extensions path for current platform', () => {

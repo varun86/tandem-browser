@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { NativeMessagingSetup } from '../native-messaging';
+import type { NativeMessagingDetectionAdapter } from '../native-messaging';
+
+const emptyDetectionAdapter: NativeMessagingDetectionAdapter = {
+  getNativeMessagingDirs: () => [],
+  getManifestLocations: () => [],
+  mirrorManifestsToTandemDir: () => {},
+};
 
 describe('NativeMessagingSetup host access', () => {
   it('accepts known runtime IDs for hosts that publish the Chrome Web Store ID', () => {
-    const setup = new NativeMessagingSetup();
+    const setup = new NativeMessagingSetup(emptyDetectionAdapter);
     (setup as unknown as {
       hosts: Array<{
         name: string;

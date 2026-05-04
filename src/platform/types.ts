@@ -4,6 +4,7 @@ import type { ChromeImporter, ChromeImportStatus } from '../import/chrome-import
 import type {
   NativeMessagingHost,
   NativeMessagingHostAccessDecision,
+  NativeMessagingDetectionAdapter,
   NativeMessagingStatus,
 } from '../extensions/native-messaging';
 import type { PlatformId } from './errors';
@@ -42,6 +43,7 @@ export interface ChromeImportAdapter {
 }
 
 export interface NativeMessagingAdapter {
+  createDetectionAdapter(): NativeMessagingDetectionAdapter;
   createSetup(): {
     getNativeMessagingDirs(): { path: string; exists: boolean }[];
     detectHosts(): NativeMessagingHost[];

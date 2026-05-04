@@ -1,7 +1,12 @@
 import { getPlatformCapabilities, normalizePlatform } from './capabilities';
 import type { PlatformId } from './errors';
 import { createDarwinChromeImportAdapter, createLinuxChromeImportAdapter, createUnsupportedChromeImportAdapter, createWindowsChromeImportAdapter } from './chrome-import';
-import { createDarwinNativeMessagingAdapter, createUnsupportedNativeMessagingAdapter } from './native-messaging';
+import {
+  createDarwinNativeMessagingAdapter,
+  createLinuxNativeMessagingAdapter,
+  createUnsupportedNativeMessagingAdapter,
+  createWindowsNativeMessagingAdapter,
+} from './native-messaging';
 import { createDarwinPathsAdapter, createLinuxPathsAdapter, createUnsupportedPathsAdapter, createWindowsPathsAdapter } from './paths';
 import { createProcessAdapter } from './process';
 import { createDarwinSecretsAdapter, createUnsupportedSecretsAdapter } from './secrets';
@@ -59,7 +64,11 @@ function createStubPlatform(id: PlatformId): PlatformAdapter {
       : id === 'linux'
         ? createLinuxChromeImportAdapter()
         : createUnsupportedChromeImportAdapter(id),
-    nativeMessaging: createUnsupportedNativeMessagingAdapter(id),
+    nativeMessaging: id === 'win32'
+      ? createWindowsNativeMessagingAdapter()
+      : id === 'linux'
+        ? createLinuxNativeMessagingAdapter()
+        : createUnsupportedNativeMessagingAdapter(id),
     voice: createUnsupportedVoiceAdapter(id),
     videoAudio: createUnsupportedVideoAudioAdapter(id),
     windowChrome: id === 'win32'

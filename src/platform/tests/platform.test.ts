@@ -79,7 +79,9 @@ describe('selectPlatform', () => {
     expect(platform.capabilities.capabilities.appStartup.status).toBe('unsupported');
     expect(platform.capabilities.capabilities.windowChrome.status).toBe('supported');
     expect(platform.capabilities.capabilities.userDataDirectory.status).toBe('supported');
+    expect(platform.capabilities.capabilities.nativeMessagingHostDetection.status).toBe('supported');
     expect(() => platform.chromeImport.getUnavailableStatus()).not.toThrow();
+    expect(() => platform.nativeMessaging.createDetectionAdapter().getNativeMessagingDirs()).not.toThrow();
     expect(platform.windowChrome.getBrowserWindowOptions()).toMatchObject({
       frame: false,
     });

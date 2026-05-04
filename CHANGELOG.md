@@ -4,6 +4,42 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
+## [v1.7.0] - 2026-05-04
+
+Windows support Phase 9. Tandem now detects Chrome native messaging hosts on
+Windows through read-only registry lookup while keeping the existing filesystem
+fallback and preserving macOS/Linux directory scanning behavior.
+
+### Added
+
+- **Windows native messaging registry detection** (`src/platform/native-messaging/`) -
+  reads Chrome native messaging host manifest paths from
+  `HKCU\Software\Google\Chrome\NativeMessagingHosts` and
+  `HKLM\Software\Google\Chrome\NativeMessagingHosts`.
+- **Native messaging adapter coverage** (`src/extensions/tests/extensions.test.ts`) -
+  added mocked Windows registry coverage and pinned the macOS native messaging
+  directory list.
+
+### Changed
+
+- **Native messaging setup** (`src/extensions/native-messaging.ts`) - moved
+  manifest discovery onto the platform adapter while retaining shared host
+  validation, status reporting, and extension access checks.
+- **Extension manager** (`src/extensions/manager.ts`) - creates native messaging
+  setup through the selected platform adapter.
+- **Platform support matrix** (`docs/platform-support.md`) - marks Windows native
+  messaging host detection as supported for source runs.
+
+### Technical Details
+
+- Windows registry access is read-only and uses a zero-dependency PowerShell
+  query from Node.
+- Windows detection combines HKCU/HKLM registry manifests with the existing
+  `%LOCALAPPDATA%\Google\Chrome\User Data\NativeMessagingHosts` filesystem
+  fallback.
+- macOS native messaging directories remain unchanged.
+- No new dependency was added.
+
 ## [v1.6.0] - 2026-05-04
 
 Windows support Phase 8. Tandem now resolves Chrome profile paths through the

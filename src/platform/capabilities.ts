@@ -71,7 +71,7 @@ const CAPABILITY_PROFILES: Record<PlatformId, PlatformSupportProfile> = {
       stealthUa: { status: 'supported', notes: 'Windows source runs present a Chrome-on-Windows UA persona.' },
       chromeBookmarkHistoryImport: { status: 'supported', notes: 'Windows Chrome bookmark and history import scans LOCALAPPDATA/Google/Chrome/User Data profiles.' },
       chromeCookieImport: unsupportedCapability('Windows Chrome cookie import is not implemented; encrypted cookies require DPAPI support and no dependency was added in phase 8.'),
-      nativeMessagingHostDetection: { status: 'partial', notes: 'Filesystem fallback exists; registry reader planned in windows-support phase 9.' },
+      nativeMessagingHostDetection: { status: 'supported', notes: 'Windows native messaging host detection reads Chrome registry keys and keeps the filesystem fallback.' },
       voiceTranscription: unsupportedCapability('Windows Whisper fallback planned in windows-support phase 10.'),
       videoRecorderSystemAudio: unsupportedCapability('Windows WASAPI loopback planned in windows-support phase 11.'),
       keyboardShortcutsLabels: { status: 'partial', notes: 'Cross-platform labels finalized in windows-support phase 12.' },

@@ -44,7 +44,7 @@
 | Stealth UA matches host OS | supported | supported | partial | Windows source runs present Chrome on Windows; public Windows release remains unannounced. |
 | Chrome bookmark + history import | supported | supported | partial | Windows source runs scan `%LOCALAPPDATA%\Google\Chrome\User Data\<Profile>\` for bookmark and history import. |
 | Chrome cookie import | partial | unsupported | partial | Windows encrypted cookie import requires DPAPI support and is intentionally not implemented in phase 8; no risky dependency was added. |
-| Native messaging host detection | supported | partial | supported | Windows uses filesystem fallback today; registry reader planned in windows-support phase 9. |
+| Native messaging host detection | supported | supported | supported | Windows reads Chrome native messaging host registry keys under HKCU/HKLM and keeps the filesystem fallback. |
 | Voice transcription | supported | unsupported | partial | Windows Whisper fallback planned in windows-support phase 10. |
 | Video recorder with system audio | supported | unsupported | partial | Windows WASAPI loopback planned in windows-support phase 11. |
 | Keyboard shortcuts and labels | supported | partial | supported | Cross-platform labels finalized in windows-support phase 12. |

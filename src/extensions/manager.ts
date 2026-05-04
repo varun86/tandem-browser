@@ -4,8 +4,7 @@ import fs from 'fs';
 import { ExtensionLoader } from './loader';
 import type { InstallResult } from './crx-downloader';
 import { CrxDownloader } from './crx-downloader';
-import type { NativeMessagingStatus } from './native-messaging';
-import { NativeMessagingSetup } from './native-messaging';
+import type { NativeMessagingHostAccessDecision, NativeMessagingHost, NativeMessagingStatus } from './native-messaging';
 import { IdentityPolyfill } from './identity-polyfill';
 import { ActionPolyfill } from './action-polyfill';
 import type { UpdateCheckResult, UpdateResult, UpdateState, InstalledExtension } from './update-checker';
@@ -15,6 +14,7 @@ import { ConflictDetector } from './conflict-detector';
 import { tandemDir } from '../utils/paths';
 import { API_PORT } from '../utils/constants';
 import { createLogger } from '../utils/logger';
+import { selectPlatform } from '../platform';
 
 const log = createLogger('ExtensionManager');
 
@@ -46,6 +46,14 @@ export interface ExtensionRouteAccessDecision {
   extensionName: string | null;
   permissions: string[];
   auditLabel: string;
+}
+
+interface NativeMessagingRuntime {
+  detectHosts(): NativeMessagingHost[];
+  configure(session: Session): { configured: string[]; missing: string[] };
+  getStatus(): NativeMessagingStatus;
+  evaluateHostAccess(hostName: string, candidateExtensionIds: Array<string | null | undefined>): NativeMessagingHostAccessDecision;
+  isHostAvailable(extensionId: string): boolean;
 }
 
 interface ExtensionRoutePolicy {
@@ -115,7 +123,7 @@ export class ExtensionManager {
 
   private loader: ExtensionLoader;
   private downloader: CrxDownloader;
-  private nativeMessaging: NativeMessagingSetup;
+  private nativeMessaging: NativeMessagingRuntime;
   private identityPolyfill: IdentityPolyfill;
   private actionPolyfill: ActionPolyfill;
   private updateChecker: UpdateChecker;
@@ -126,7 +134,7 @@ export class ExtensionManager {
   constructor(apiPort: number = API_PORT) {
     this.loader = new ExtensionLoader();
     this.downloader = new CrxDownloader();
-    this.nativeMessaging = new NativeMessagingSetup();
+    this.nativeMessaging = selectPlatform().nativeMessaging.createSetup();
     this.identityPolyfill = new IdentityPolyfill(apiPort);
     this.actionPolyfill = new ActionPolyfill(apiPort);
     this.updateChecker = new UpdateChecker(this.downloader, this.loader);

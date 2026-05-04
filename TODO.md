@@ -14,7 +14,7 @@ Last updated: May 4, 2026
 
 ## Current Snapshot
 
-- Current app version: `1.6.0`
+- Current app version: `1.7.0`
 - MCP server: 253 tools (full API parity + awareness)
 - The codebase scope is larger than this backlog summary and includes major subsystems such as `sidebar`, `workspaces`, `pinboards`, `sync`, `headless`, and `sessions`.
 - Scheduled browsing already exists in baseline form via `WatchManager` and the `/watch/*` API routes.
@@ -93,6 +93,10 @@ Last updated: May 4, 2026
 
 ## Recently Completed
 
+- [x] Windows support Phase 9: moved native messaging host detection into the
+  native-messaging platform adapter, added read-only Windows Chrome registry
+  detection for HKCU/HKLM native messaging hosts, kept the filesystem fallback,
+  and pinned macOS directory scanning behavior with tests
 - [x] Windows support Phase 8: moved Chrome profile path detection into the
   chrome-import platform adapter, added Windows Chrome profile scanning under
   `%LOCALAPPDATA%\Google\Chrome\User Data`, enabled Windows bookmark and
