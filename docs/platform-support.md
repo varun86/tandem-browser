@@ -46,7 +46,7 @@
 | Chrome cookie import | partial | unsupported | partial | Windows encrypted cookie import requires DPAPI support and is intentionally not implemented in phase 8; no risky dependency was added. |
 | Native messaging host detection | supported | supported | supported | Windows reads Chrome native messaging host registry keys under HKCU/HKLM and keeps the filesystem fallback. |
 | Voice transcription | supported | partial | partial | Windows source runs can use user-installed `whisper.exe` on `PATH`; Tandem does not bundle Whisper or download models. |
-| Video recorder with system audio | supported | unsupported | partial | Windows WASAPI loopback planned in windows-support phase 11. |
+| Video recorder with system audio | supported | unsupported | partial | Windows phase 11 spike found that the current `ffmpeg-static` binary exposes DirectShow capture but no WASAPI input, and this machine has no DirectShow loopback/system-audio device. |
 | Keyboard shortcuts and labels | supported | partial | supported | Cross-platform labels finalized in windows-support phase 12. |
 | Secrets at rest | supported | unsupported | supported | Unified `safeStorage` adapter planned in windows-support phase 5. |
 | User data directory | supported | unsupported | supported | Windows `%APPDATA%` path planned in windows-support phase 4. |

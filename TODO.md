@@ -37,6 +37,7 @@ Last updated: May 4, 2026
 - [x] HAR export for the network inspector
 - [ ] Design and build the `Personal News` experience; the sidebar currently has a placeholder slot, but the actual panel and feed model are not implemented yet
 - [x] Built-in video recorder with Application and Region capture modes, tab audio + mic toggle, MP4 output via ffmpeg; replaces AudioCaptureManager
+- [ ] Windows video recorder: find a proven system-audio capture path for the current `ffmpeg-static` binary or switch to an approved ffmpeg build strategy; Phase 11 proved DirectShow microphone capture works, but this machine has no DirectShow loopback/system-audio device and the bundled binary has no WASAPI input.
 - [ ] Linux video recorder: implement desktop audio capture via PulseAudio/Pipewire monitor sources; current implementation captures mic audio but not webview/tab audio due to Electron process isolation limitations on Linux
 
 ### Maintenance Sweep
