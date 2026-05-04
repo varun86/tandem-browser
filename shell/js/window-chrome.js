@@ -7,6 +7,8 @@
     (async () => {
       const platform = await window.tandem?.getPlatform?.() || 'unknown';
       document.body.classList.add(`platform-${platform}`);
+      if (platform === 'darwin') document.body.classList.add('platform-mac');
+      if (platform === 'win32') document.body.classList.add('platform-win');
     })();
 
     const btnAppMenu = document.getElementById('btn-app-menu');

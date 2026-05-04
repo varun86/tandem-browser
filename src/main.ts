@@ -45,6 +45,7 @@ import type { PendingTabRegister, RuntimeManagers } from './bootstrap/types';
 import { isGoogleAuthUrl, shouldSkipStealth, pathnameMatchesPrefix, tryParseUrl, urlHasProtocol, hostnameMatches } from './utils/security';
 import { readConfigFileSync } from './config/io';
 import { resolveInitialTheme, buildThemeAdditionalArg, toNativeThemeSource, type ResolvedTheme } from './theme/resolver';
+import { selectPlatform } from './platform';
 import { CloudflarePolicyManager } from './cloudflare/policy-manager';
 import {
   CLOUDFLARE_CHALLENGE_SELECTORS,
@@ -803,25 +804,7 @@ async function createWindow(): Promise<BrowserWindow> {
     }
   });
 
-  // macOS: hiddenInset titlebar (tabs inline with traffic lights, Chrome-style)
-  //        + under-window vibrancy (deepest native glass effect)
-  //        + transparent background so macOS glass shows through chrome areas
-  //        + trafficLightPosition centered in the 36px tab bar
-  // Linux: frameless window (Chrome-style tabs + custom window controls)
-  // Windows: native frame for now (TODO: implement custom titlebar)
-  const platformWindowOptions: Partial<Electron.BrowserWindowConstructorOptions> = process.platform === 'darwin'
-    ? {
-        titleBarStyle: 'hiddenInset',
-        trafficLightPosition: { x: 16, y: 10 },
-        vibrancy: 'under-window',
-        visualEffectState: 'active',
-        backgroundColor: '#00000000',  // transparent so macOS vibrancy shows through chrome
-      }
-    : process.platform === 'linux'
-    ? {
-        frame: false,  // frameless → custom titlebar with Chrome-style tabs
-      }
-    : {};
+  const platformWindowOptions = selectPlatform().windowChrome.getBrowserWindowOptions();
 
   // Pre-paint theme resolution — eliminates dark→light flash.
   // We read the file directly because ConfigManager is not yet initialized.
