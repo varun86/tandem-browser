@@ -21,8 +21,8 @@ import { DownloadManager } from '../downloads/manager';
 import { EventStreamManager } from '../events/stream';
 import { getHandoffAttentionLevel } from '../handoffs/attention';
 import { HandoffManager, type Handoff } from '../handoffs/manager';
-import { ChromeImporter } from '../import/chrome-importer';
 import type { Logger } from '../utils/logger';
+import { selectPlatform } from '../platform';
 import type { ManagerRegistry } from '../registry';
 import { VideoRecorderManager } from '../video/recorder';
 import { BookmarkManager } from '../bookmarks/manager';
@@ -226,7 +226,7 @@ export async function initializeRuntimeManagers(opts: InitializeRuntimeOptions):
     runtime.networkInspector.registerWith(dispatcher);
   }
   runtime.securityManager = new SecurityManager();
-  runtime.chromeImporter = new ChromeImporter(runtime.configManager);
+  runtime.chromeImporter = selectPlatform().chromeImport.createImporter(runtime.configManager);
   runtime.bookmarkManager = new BookmarkManager();
   runtime.historyManager = new HistoryManager();
   runtime.downloadManager = new DownloadManager();

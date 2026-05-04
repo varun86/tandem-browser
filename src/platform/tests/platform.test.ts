@@ -1,7 +1,62 @@
 import { describe, expect, it } from 'vitest';
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { NotImplementedError, getPlatformCapabilities, selectPlatform } from '..';
+import { ChromeImporter } from '../../import/chrome-importer';
+import { createDarwinChromeImportAdapter, createWindowsChromeImportAdapter } from '../chrome-import';
+
+function writeChromeBookmarks(bookmarksPath: string): void {
+  fs.writeFileSync(bookmarksPath, JSON.stringify({
+    roots: {
+      bookmark_bar: {
+        id: '1',
+        name: 'Bookmarks Bar',
+        type: 'folder',
+        children: [
+          {
+            id: '2',
+            name: 'Tandem',
+            type: 'url',
+            url: 'https://tandem.local/',
+            date_added: '13300000000000000',
+          },
+        ],
+      },
+      other: {
+        id: '3',
+        name: 'Other Bookmarks',
+        type: 'folder',
+        children: [],
+      },
+      synced: {
+        id: '4',
+        name: 'Mobile Bookmarks',
+        type: 'folder',
+        children: [],
+      },
+    },
+  }), 'utf-8');
+}
+
+const chromeFixtureTime = 11644473600000000 + (Date.UTC(2026, 4, 4, 10, 0, 0) * 1000);
+
+class FixtureChromeHistoryDatabase {
+  constructor(_filename: string, _options: { readonly: boolean }) {}
+
+  prepare(_sql: string): { all: () => unknown[] } {
+    return {
+      all: () => [{
+        url: 'https://tandem.local/history',
+        title: 'Tandem History',
+        visit_count: 3,
+        last_visit_time: chromeFixtureTime,
+      }],
+    };
+  }
+
+  close(): void {}
+}
 
 describe('selectPlatform', () => {
   it('returns the Darwin adapter', () => {
@@ -69,5 +124,81 @@ describe('selectPlatform', () => {
         process.env.APPDATA = originalAppData;
       }
     }
+  });
+
+  it('keeps the macOS Chrome profile path unchanged through the chrome-import adapter', () => {
+    const adapter = createDarwinChromeImportAdapter();
+
+    expect(adapter.getDefaultChromeBasePath()).toBe(path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome'));
+    expect(adapter.resolveProfilePath('Default')).toBe(path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome', 'Default'));
+  });
+
+  it('imports bookmarks from a macOS fixture profile through the chrome-import adapter', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-mac-chrome-import-'));
+    const chromeBase = path.join(root, 'Library', 'Application Support', 'Google', 'Chrome');
+    const profilePath = path.join(chromeBase, 'Default');
+    const tandemDataDir = path.join(root, 'tandem');
+    fs.mkdirSync(profilePath, { recursive: true });
+    writeChromeBookmarks(path.join(profilePath, 'Bookmarks'));
+
+    try {
+      const importer = new ChromeImporter(undefined, createDarwinChromeImportAdapter(chromeBase), tandemDataDir);
+      const result = importer.importBookmarks();
+      const imported = JSON.parse(fs.readFileSync(path.join(tandemDataDir, 'bookmarks.json'), 'utf-8'));
+
+      expect(result).toMatchObject({ ok: true, count: 1 });
+      expect(imported.bookmarks[0].children[0].url).toBe('https://tandem.local/');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('detects Windows Chrome profiles under LOCALAPPDATA and imports bookmarks plus history', () => {
+    const originalLocalAppData = process.env.LOCALAPPDATA;
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tandem-win-chrome-import-'));
+    const localAppData = path.join(root, 'LocalAppData');
+    const chromeBase = path.join(localAppData, 'Google', 'Chrome', 'User Data');
+    const profilePath = path.join(chromeBase, 'Default');
+    const tandemDataDir = path.join(root, 'tandem');
+    fs.mkdirSync(profilePath, { recursive: true });
+    fs.writeFileSync(path.join(profilePath, 'Preferences'), JSON.stringify({ profile: { name: 'Robin' } }), 'utf-8');
+    writeChromeBookmarks(path.join(profilePath, 'Bookmarks'));
+    fs.writeFileSync(path.join(profilePath, 'History'), 'sqlite fixture placeholder', 'utf-8');
+
+    try {
+      process.env.LOCALAPPDATA = localAppData;
+      const windowsAdapter = createWindowsChromeImportAdapter();
+      const importer = new ChromeImporter(undefined, windowsAdapter, tandemDataDir, FixtureChromeHistoryDatabase);
+      const profiles = importer.listProfiles();
+      const bookmarkResult = importer.importBookmarks();
+      const historyResult = importer.importHistory();
+      const importedHistory = JSON.parse(fs.readFileSync(path.join(tandemDataDir, 'history.json'), 'utf-8'));
+
+      expect(windowsAdapter.getDefaultChromeBasePath()).toBe(path.join(localAppData, 'Google', 'Chrome', 'User Data'));
+      expect(profiles).toEqual([{ name: 'Robin (Default)', path: 'Default', hasBookmarks: true }]);
+      expect(bookmarkResult).toMatchObject({ ok: true, count: 1 });
+      expect(historyResult).toMatchObject({ ok: true, count: 1 });
+      expect(importedHistory.entries[0]).toMatchObject({
+        url: 'https://tandem.local/history',
+        title: 'Tandem History',
+        visitCount: 3,
+      });
+    } finally {
+      if (originalLocalAppData === undefined) {
+        delete process.env.LOCALAPPDATA;
+      } else {
+        process.env.LOCALAPPDATA = originalLocalAppData;
+      }
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('documents Windows Chrome encrypted cookie import as unsupported', () => {
+    const adapter = createWindowsChromeImportAdapter('C:\\Users\\Robin\\AppData\\Local\\Google\\Chrome\\User Data');
+
+    expect(adapter.getCookieImportSupport()).toMatchObject({
+      encryptedStore: false,
+      status: 'unsupported',
+    });
   });
 });
