@@ -40,7 +40,7 @@
 | App startup (`npm start` from source) | supported | unsupported | partial | Windows blocked by Unix-only start script; fixed in windows-support phase 2. |
 | Signed installer | supported | unsupported | unsupported | Windows installer planned in windows-support phase 13–14. |
 | Auto-update | supported | unsupported | unsupported | Windows feed planned in windows-support phase 15. |
-| Custom titlebar / window chrome | supported | unsupported | supported | Windows custom titlebar planned in windows-support phase 6. |
+| Custom titlebar / window chrome | supported | supported | supported | Windows source runs use frameless shell-owned controls; public Windows release remains unannounced. |
 | Stealth UA matches host OS | supported | unsupported | partial | Windows UA persona planned in windows-support phase 7. |
 | Chrome bookmark + history import | supported | unsupported | partial | Windows path detection planned in windows-support phase 8. |
 | Chrome cookie import | partial | unsupported | partial | Windows DPAPI decrypt evaluated in windows-support phase 8. |

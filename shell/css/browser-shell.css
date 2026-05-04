@@ -198,12 +198,14 @@
     }
 
     /* Platform-specific padding for native controls */
-    body.platform-darwin .tab-bar {
+    body.platform-darwin .tab-bar,
+    body.platform-mac .tab-bar {
       padding-left: 80px;
       /* macOS traffic lights */
     }
 
     body.platform-linux .tab-bar,
+    body.platform-win .tab-bar,
     body.platform-win32 .tab-bar {
       padding-right: 140px;
       /* Space for custom window controls */
@@ -431,6 +433,7 @@
     }
 
     body.platform-linux .window-controls,
+    body.platform-win .window-controls,
     body.platform-win32 .window-controls {
       display: flex;
     }

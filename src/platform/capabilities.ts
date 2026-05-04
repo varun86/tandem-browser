@@ -67,7 +67,7 @@ const CAPABILITY_PROFILES: Record<PlatformId, PlatformSupportProfile> = {
       appStartup: unsupportedCapability('Blocked by Unix-only start script until windows-support phase 2.'),
       signedInstaller: unsupportedCapability('Windows installer planned in windows-support phases 13-14.'),
       autoUpdate: unsupportedCapability('Windows update feed planned in windows-support phase 15.'),
-      windowChrome: unsupportedCapability('Windows custom titlebar planned in windows-support phase 6.'),
+      windowChrome: { status: 'supported', notes: 'Frameless custom titlebar with shell controls is implemented for source runs.' },
       stealthUa: unsupportedCapability('Windows UA persona planned in windows-support phase 7.'),
       chromeBookmarkHistoryImport: unsupportedCapability('Windows Chrome paths planned in windows-support phase 8.'),
       chromeCookieImport: unsupportedCapability('Windows DPAPI decrypt evaluation planned in windows-support phase 8.'),

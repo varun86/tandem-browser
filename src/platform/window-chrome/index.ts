@@ -13,10 +13,26 @@ export function createDarwinWindowChromeAdapter(): WindowChromeAdapter {
   };
 }
 
+export function createLinuxWindowChromeAdapter(): WindowChromeAdapter {
+  return {
+    getBrowserWindowOptions: () => ({
+      frame: false,
+    }),
+  };
+}
+
+export function createWindowsWindowChromeAdapter(): WindowChromeAdapter {
+  return {
+    getBrowserWindowOptions: () => ({
+      frame: false,
+    }),
+  };
+}
+
 export function createUnsupportedWindowChromeAdapter(platform: PlatformId): WindowChromeAdapter {
   return {
     getBrowserWindowOptions: () => {
-      throw new NotImplementedError('Window chrome', platform, platform === 'win32' ? 'phase-6' : 'phase-1');
+      throw new NotImplementedError('Window chrome', platform, 'phase-1');
     },
   };
 }

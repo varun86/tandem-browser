@@ -16,15 +16,18 @@ describe('selectPlatform', () => {
     });
   });
 
-  it('returns the Windows stub adapter without throwing on capability reads', () => {
+  it('returns the Windows adapter without throwing on capability reads', () => {
     const platform = selectPlatform('win32');
 
     expect(platform.id).toBe('win32');
     expect(platform.process.isWindows()).toBe(true);
     expect(platform.capabilities.capabilities.appStartup.status).toBe('unsupported');
+    expect(platform.capabilities.capabilities.windowChrome.status).toBe('supported');
     expect(platform.capabilities.capabilities.userDataDirectory.status).toBe('supported');
     expect(() => platform.chromeImport.getUnavailableStatus()).not.toThrow();
-    expect(() => platform.windowChrome.getBrowserWindowOptions()).toThrow(NotImplementedError);
+    expect(platform.windowChrome.getBrowserWindowOptions()).toMatchObject({
+      frame: false,
+    });
   });
 
   it('returns the Linux stub adapter without throwing on capability reads', () => {
@@ -35,6 +38,9 @@ describe('selectPlatform', () => {
     expect(platform.capabilities.capabilities.windowChrome.status).toBe('supported');
     expect(platform.paths.tandemDir('foo')).toBe(path.join(os.homedir(), '.tandem', 'foo'));
     expect(() => platform.chromeImport.getUnavailableStatus()).not.toThrow();
+    expect(platform.windowChrome.getBrowserWindowOptions()).toMatchObject({
+      frame: false,
+    });
     expect(() => platform.secrets.loadOrCreateInstallSecret()).toThrow(NotImplementedError);
   });
 

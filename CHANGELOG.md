@@ -4,6 +4,35 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
+## [v1.4.0] - 2026-05-04
+
+Windows support Phase 6. Tandem now uses adapter-driven window chrome options
+and gives Windows source runs a frameless browser window with shell-owned
+minimize, maximize/restore, and close controls.
+
+### Added
+
+- **Windows window chrome adapter** (`src/platform/window-chrome/`) - added a
+  Windows BrowserWindow option path returning `frame: false` for custom
+  shell-owned titlebar controls.
+- **Windows platform body class** (`shell/js/window-chrome.js`) - adds
+  `platform-win` on Windows while preserving the existing platform class.
+
+### Changed
+
+- **BrowserWindow option selection** (`src/main.ts`) - moved platform-specific
+  window chrome branching into the platform adapter.
+- **Shell chrome CSS** (`shell/css/browser-shell.css`) - targets Windows
+  titlebar padding and controls through `platform-win`, while keeping existing
+  macOS hidden inset titlebar selectors intact.
+
+### Technical Details
+
+- macOS BrowserWindow options remain hidden inset titlebar, traffic-light
+  position, under-window vibrancy, active visual effect state, and transparent
+  background.
+- Linux remains frameless through the same adapter pattern used by Windows.
+
 ## [v1.3.0] - 2026-05-04
 
 Windows support Phase 5. Tandem now has a safeStorage-backed secret-store
