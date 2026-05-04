@@ -4,6 +4,39 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
+## [v1.9.0] - 2026-05-04
+
+Windows support Phase 12. Tandem now keeps Electron shortcut accelerators on
+`CommandOrControl` while rendering visible shortcut labels per platform, so
+macOS labels stay unchanged and Windows source runs show `Ctrl+...`.
+
+### Added
+
+- **Shortcut label helpers** (`src/platform/shortcuts/`,
+  `shell/js/shortcut-labels.js`) - centralize accelerator construction and
+  rendered shortcut labels for shell pages.
+- **Shortcut label coverage** (`src/platform/tests/platform.test.ts`) - pins
+  the existing macOS labels with a snapshot and verifies Windows `Ctrl+...`
+  rendering.
+
+### Changed
+
+- **Application and context menus** (`src/menu/app-menu.ts`,
+  `src/ipc/handlers.ts`, `src/context-menu/menu-builder.ts`) - now use
+  `CommandOrControl` accelerator strings.
+- **Shell shortcut surfaces** (`shell/index.html`, `shell/help.html`,
+  `shell/settings.html`) - render hardcoded macOS shortcut text as
+  platform-aware labels at runtime.
+- **Platform support matrix** (`docs/platform-support.md`,
+  `src/platform/capabilities.ts`) - marks Windows shortcut labels as supported
+  for source runs.
+
+### Technical Details
+
+- Conflict detection behavior is unchanged; its shortcut normalization now also
+  accepts `CommandOrControl+...` inputs.
+- No new dependency was added.
+
 ## [v1.8.0] - 2026-05-04
 
 Windows support Phase 10. Tandem now routes native speech transcription through

@@ -8,6 +8,7 @@ import type { PiPManager } from '../pip/manager';
 import type { ConfigManager } from '../config/manager';
 import type { VideoRecorderManager } from '../video/recorder';
 import { IpcChannels } from '../shared/ipc-channels';
+import { commandOrControlAccelerator } from '../platform/shortcuts';
 
 export interface MenuDeps {
   mainWindow: BrowserWindow | null;
@@ -22,12 +23,13 @@ export interface MenuDeps {
 
 export function buildAppMenu(deps: MenuDeps): void {
   const send = (action: string) => deps.mainWindow?.webContents.send(IpcChannels.SHORTCUT, action);
+  const acc = commandOrControlAccelerator;
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'Tandem Browser',
       submenu: [
-        { label: 'Settings', accelerator: 'CmdOrCtrl+,', click: () => send('open-settings') },
+        { label: 'Settings', accelerator: acc(','), click: () => send('open-settings') },
         { type: 'separator' },
         { role: 'hide' },
         { role: 'hideOthers' },
@@ -39,17 +41,17 @@ export function buildAppMenu(deps: MenuDeps): void {
     {
       label: 'File',
       submenu: [
-        { label: 'New Tab', accelerator: 'CmdOrCtrl+T', click: () => send('new-tab') },
-        { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: () => send('close-tab') },
-        { label: 'Reopen Closed Tab', accelerator: 'CmdOrCtrl+Shift+T', click: () => {
+        { label: 'New Tab', accelerator: acc('T'), click: () => send('new-tab') },
+        { label: 'Close Tab', accelerator: acc('W'), click: () => send('close-tab') },
+        { label: 'Reopen Closed Tab', accelerator: acc('Shift+T'), click: () => {
           void deps.tabManager?.reopenClosedTab();
         }},
         { type: 'separator' },
-        { label: 'Bookmark Page', accelerator: 'CmdOrCtrl+D', click: () => send('bookmark-page') },
-        { label: 'Toggle Bookmarks Bar', accelerator: 'CmdOrCtrl+Shift+B', click: () => send('toggle-bookmarks-bar') },
+        { label: 'Bookmark Page', accelerator: acc('D'), click: () => send('bookmark-page') },
+        { label: 'Toggle Bookmarks Bar', accelerator: acc('Shift+B'), click: () => send('toggle-bookmarks-bar') },
         { label: 'Bookmark Manager', click: () => send('open-bookmarks') },
-        { label: 'Find in Page', accelerator: 'CmdOrCtrl+F', click: () => send('find-in-page') },
-        { label: 'History', accelerator: 'CmdOrCtrl+Y', click: () => send('open-history') },
+        { label: 'Find in Page', accelerator: acc('F'), click: () => send('find-in-page') },
+        { label: 'History', accelerator: acc('Y'), click: () => send('open-history') },
       ],
     },
     {
@@ -63,15 +65,15 @@ export function buildAppMenu(deps: MenuDeps): void {
         { role: 'paste' },
         { role: 'selectAll' },
         { type: 'separator' },
-        { label: 'Draw Mode', accelerator: 'CmdOrCtrl+Shift+D', click: () => deps.drawManager?.toggleDrawMode() },
+        { label: 'Draw Mode', accelerator: acc('Shift+D'), click: () => deps.drawManager?.toggleDrawMode() },
       ],
     },
     {
       label: 'View',
       submenu: [
-        { label: 'Zoom In', accelerator: 'CmdOrCtrl+=', click: () => send('zoom-in') },
-        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', click: () => send('zoom-out') },
-        { label: 'Reset Zoom', accelerator: 'CmdOrCtrl+0', click: () => send('zoom-reset') },
+        { label: 'Zoom In', accelerator: acc('='), click: () => send('zoom-in') },
+        { label: 'Zoom Out', accelerator: acc('-'), click: () => send('zoom-out') },
+        { label: 'Reset Zoom', accelerator: acc('0'), click: () => send('zoom-reset') },
         { type: 'separator' },
         { role: 'togglefullscreen' },
       ],
@@ -79,7 +81,7 @@ export function buildAppMenu(deps: MenuDeps): void {
     {
       label: 'Help',
       submenu: [
-        { label: 'Keyboard Shortcuts', accelerator: 'CmdOrCtrl+Shift+/', click: () => send('show-shortcuts') },
+        { label: 'Keyboard Shortcuts', accelerator: acc('Shift+/'), click: () => send('show-shortcuts') },
         { type: 'separator' },
         { label: 'Show Onboarding', click: () => send('show-onboarding') },
         { type: 'separator' },
@@ -88,12 +90,12 @@ export function buildAppMenu(deps: MenuDeps): void {
     },
   ];
 
-  // Add Cmd+1-9 tab switching (hidden menu items)
+  // Add CommandOrControl+1-9 tab switching (hidden menu items)
   const tabSwitchItems: Electron.MenuItemConstructorOptions[] = [];
   for (let i = 1; i <= 9; i++) {
     tabSwitchItems.push({
       label: `Tab ${i}`,
-      accelerator: `CmdOrCtrl+${i}`,
+      accelerator: acc(String(i)),
       visible: false,
       click: () => send(`focus-tab-${i - 1}`),
     });

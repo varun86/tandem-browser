@@ -5,6 +5,7 @@ import path from 'path';
 import { NotImplementedError, getPlatformCapabilities, selectPlatform } from '..';
 import { ChromeImporter } from '../../import/chrome-importer';
 import { createDarwinChromeImportAdapter, createWindowsChromeImportAdapter } from '../chrome-import';
+import { commandOrControlAccelerator, labelShortcutText } from '../shortcuts';
 import { createDarwinVoiceAdapter, createWindowsVoiceAdapter, findWindowsWhisperBinary } from '../voice';
 
 function writeChromeBookmarks(bookmarksPath: string): void {
@@ -111,6 +112,15 @@ describe('selectPlatform', () => {
     expect(platform.id).toBe('unsupported');
     expect(platform.capabilities.tier).toBe('unsupported');
     expect(getPlatformCapabilities('freebsd').capabilities.appStartup.status).toBe('unsupported');
+  });
+
+  it('keeps existing macOS shortcut labels unchanged', () => {
+    expect(labelShortcutText('New tab (Cmd+T), Bookmark (⌘D), Screenshot (⌘⇧S)', 'darwin')).toMatchInlineSnapshot('"New tab (Cmd+T), Bookmark (⌘D), Screenshot (⌘⇧S)"');
+  });
+
+  it('renders Windows shortcut labels with Ctrl', () => {
+    expect(commandOrControlAccelerator('Shift+S')).toBe('CommandOrControl+Shift+S');
+    expect(labelShortcutText('New tab (Cmd+T), Bookmark (⌘D), Screenshot (⌘⇧S)', 'win32')).toBe('New tab (Ctrl+T), Bookmark (Ctrl+D), Screenshot (Ctrl+Shift+S)');
   });
 
   it('uses APPDATA/Tandem Browser for Windows user data paths', () => {

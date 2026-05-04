@@ -47,7 +47,7 @@
 | Native messaging host detection | supported | supported | supported | Windows reads Chrome native messaging host registry keys under HKCU/HKLM and keeps the filesystem fallback. |
 | Voice transcription | supported | partial | partial | Windows source runs can use user-installed `whisper.exe` on `PATH`; Tandem does not bundle Whisper or download models. |
 | Video recorder with system audio | supported | unsupported | partial | Windows phase 11 spike found that the current `ffmpeg-static` binary exposes DirectShow capture but no WASAPI input, and this machine has no DirectShow loopback/system-audio device. |
-| Keyboard shortcuts and labels | supported | partial | supported | Cross-platform labels finalized in windows-support phase 12. |
+| Keyboard shortcuts and labels | supported | supported | supported | Windows source runs show platform-aware `Ctrl` labels while preserving Electron `CommandOrControl` accelerators. |
 | Secrets at rest | supported | unsupported | supported | Unified `safeStorage` adapter planned in windows-support phase 5. |
 | User data directory | supported | unsupported | supported | Windows `%APPDATA%` path planned in windows-support phase 4. |
 

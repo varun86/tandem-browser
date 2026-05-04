@@ -74,7 +74,7 @@ const CAPABILITY_PROFILES: Record<PlatformId, PlatformSupportProfile> = {
       nativeMessagingHostDetection: { status: 'supported', notes: 'Windows native messaging host detection reads Chrome registry keys and keeps the filesystem fallback.' },
       voiceTranscription: { status: 'partial', notes: 'Windows voice transcription uses whisper.exe when users install Whisper and place it on PATH; Tandem does not bundle Whisper or download models.' },
       videoRecorderSystemAudio: unsupportedCapability('Windows WASAPI loopback planned in windows-support phase 11.'),
-      keyboardShortcutsLabels: { status: 'partial', notes: 'Cross-platform labels finalized in windows-support phase 12.' },
+      keyboardShortcutsLabels: { status: 'supported', notes: 'Windows source runs show platform-aware Ctrl labels while preserving CommandOrControl accelerators.' },
       secretsAtRest: unsupportedCapability('Unified safeStorage adapter planned in windows-support phase 5.'),
       userDataDirectory: { status: 'supported', notes: 'Windows user data resolves to APPDATA/Tandem Browser.' },
     },

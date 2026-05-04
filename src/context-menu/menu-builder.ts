@@ -159,7 +159,7 @@ export class ContextMenuBuilder {
 
     menu.append(new MenuItem({
       label: 'Copy',
-      accelerator: 'CmdOrCtrl+C',
+      accelerator: 'CommandOrControl+C',
       click: () => { if (!wc.isDestroyed()) wc.copy(); },
     }));
 
@@ -183,13 +183,13 @@ export class ContextMenuBuilder {
 
     menu.append(new MenuItem({
       label: 'Undo',
-      accelerator: 'CmdOrCtrl+Z',
+      accelerator: 'CommandOrControl+Z',
       enabled: params.editFlags.canUndo,
       click: guard(() => wc.undo()),
     }));
     menu.append(new MenuItem({
       label: 'Redo',
-      accelerator: 'CmdOrCtrl+Shift+Z',
+      accelerator: 'CommandOrControl+Shift+Z',
       enabled: params.editFlags.canRedo,
       click: guard(() => wc.redo()),
     }));
@@ -198,25 +198,25 @@ export class ContextMenuBuilder {
 
     menu.append(new MenuItem({
       label: 'Cut',
-      accelerator: 'CmdOrCtrl+X',
+      accelerator: 'CommandOrControl+X',
       enabled: params.editFlags.canCut,
       click: guard(() => wc.cut()),
     }));
     menu.append(new MenuItem({
       label: 'Copy',
-      accelerator: 'CmdOrCtrl+C',
+      accelerator: 'CommandOrControl+C',
       enabled: params.editFlags.canCopy,
       click: guard(() => wc.copy()),
     }));
     menu.append(new MenuItem({
       label: 'Paste',
-      accelerator: 'CmdOrCtrl+V',
+      accelerator: 'CommandOrControl+V',
       enabled: params.editFlags.canPaste,
       click: guard(() => wc.paste()),
     }));
     menu.append(new MenuItem({
       label: 'Paste as Plain Text',
-      accelerator: 'CmdOrCtrl+Shift+V',
+      accelerator: 'CommandOrControl+Shift+V',
       enabled: params.editFlags.canPaste,
       click: guard(() => wc.pasteAndMatchStyle()),
     }));
@@ -230,7 +230,7 @@ export class ContextMenuBuilder {
 
     menu.append(new MenuItem({
       label: 'Select All',
-      accelerator: 'CmdOrCtrl+A',
+      accelerator: 'CommandOrControl+A',
       enabled: params.editFlags.canSelectAll,
       click: guard(() => wc.selectAll()),
     }));
@@ -314,7 +314,7 @@ export class ContextMenuBuilder {
     }));
     menu.append(new MenuItem({
       label: 'Reload',
-      accelerator: 'CmdOrCtrl+R',
+      accelerator: 'CommandOrControl+R',
       click: () => { if (!wc.isDestroyed()) wc.reload(); },
     }));
   }
@@ -325,12 +325,12 @@ export class ContextMenuBuilder {
   private addToolItems(menu: Menu, params: ContextMenuParams, wc: WebContents): void {
     menu.append(new MenuItem({
       label: 'Save As...',
-      accelerator: 'CmdOrCtrl+S',
+      accelerator: 'CommandOrControl+S',
       click: () => { this.handleSaveAs(wc).catch(e => log.warn('Save As failed:', e.message)); },
     }));
     menu.append(new MenuItem({
       label: 'Print...',
-      accelerator: 'CmdOrCtrl+P',
+      accelerator: 'CommandOrControl+P',
       click: () => { if (!wc.isDestroyed()) wc.print(); },
     }));
 
@@ -338,7 +338,7 @@ export class ContextMenuBuilder {
 
     menu.append(new MenuItem({
       label: 'View Page Source',
-      accelerator: 'CmdOrCtrl+U',
+      accelerator: 'CommandOrControl+U',
       click: () => {
         if (wc.isDestroyed()) return;
         const url = wc.getURL();
@@ -347,7 +347,7 @@ export class ContextMenuBuilder {
     }));
     menu.append(new MenuItem({
       label: 'Inspect Element',
-      accelerator: 'CmdOrCtrl+Shift+I',
+      accelerator: 'CommandOrControl+Shift+I',
       click: () => { if (!wc.isDestroyed()) wc.inspectElement(params.x, params.y); },
     }));
   }
@@ -452,7 +452,7 @@ export class ContextMenuBuilder {
     const isBookmarkedNow = this.deps.bookmarkManager.isBookmarked(pageUrl);
     menu.append(new MenuItem({
       label: isBookmarkedNow ? 'Remove Bookmark' : 'Bookmark this Page',
-      accelerator: 'CmdOrCtrl+D',
+      accelerator: 'CommandOrControl+D',
       click: () => {
         const currentlyBookmarked = this.deps.bookmarkManager.isBookmarked(pageUrl);
         if (currentlyBookmarked) {
@@ -504,7 +504,7 @@ export class ContextMenuBuilder {
     } else if (params.selectionText) {
       menu.append(new MenuItem({
         label: 'Copy',
-        accelerator: 'CmdOrCtrl+C',
+        accelerator: 'CommandOrControl+C',
         click: () => { if (!wc.isDestroyed()) wc.copy(); },
       }));
     }
@@ -543,7 +543,7 @@ export class ContextMenuBuilder {
     this.addSeparator(menu);
     menu.append(new MenuItem({
       label: 'Inspect Element',
-      accelerator: 'CmdOrCtrl+Shift+I',
+      accelerator: 'CommandOrControl+Shift+I',
       click: () => { if (!wc.isDestroyed()) wc.inspectElement(params.x, params.y); },
     }));
   }
@@ -561,7 +561,7 @@ export class ContextMenuBuilder {
 
     menu.append(new MenuItem({
       label: 'New Tab',
-      accelerator: 'CmdOrCtrl+T',
+      accelerator: 'CommandOrControl+T',
       click: () => this.deps.tabManager.openTab(),
     }));
 
@@ -666,7 +666,7 @@ export class ContextMenuBuilder {
 
     menu.append(new MenuItem({
       label: 'Close Tab',
-      accelerator: 'CmdOrCtrl+W',
+      accelerator: 'CommandOrControl+W',
       click: () => this.deps.tabManager.closeTab(tabId),
     }));
     menu.append(new MenuItem({
@@ -692,7 +692,7 @@ export class ContextMenuBuilder {
 
     menu.append(new MenuItem({
       label: 'Reopen Closed Tab',
-      accelerator: 'CmdOrCtrl+Shift+T',
+      accelerator: 'CommandOrControl+Shift+T',
       enabled: this.deps.tabManager.hasClosedTabs(),
       click: () => this.deps.tabManager.reopenClosedTab(),
     }));

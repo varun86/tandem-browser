@@ -53,7 +53,7 @@ const TANDEM_SHORTCUTS: TandemShortcut[] = [
   { key: 'Ctrl+Shift+S', action: 'Quick Screenshot' },
   { key: 'Ctrl+Shift+C', action: 'ClaroNote Record' },
   { key: 'Ctrl+Shift+/', action: 'Keyboard Shortcuts' },
-  // Cmd+1-9 tab switching
+  // CommandOrControl+1-9 tab switching
   { key: 'Ctrl+1', action: 'Switch to Tab 1' },
   { key: 'Ctrl+2', action: 'Switch to Tab 2' },
   { key: 'Ctrl+3', action: 'Switch to Tab 3' },
@@ -291,6 +291,7 @@ export class ConflictDetector {
  */
 function normalizeShortcut(shortcut: string): string {
   return shortcut
+    .replace(/CommandOrControl\+/gi, 'Ctrl+')
     .replace(/Command\+/gi, 'Ctrl+')
     .replace(/MacCtrl\+/gi, 'Ctrl+')
     .replace(/Cmd\+/gi, 'Ctrl+')
