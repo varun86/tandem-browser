@@ -14,9 +14,41 @@ const root = path.join(__dirname, '..');
 const apiPort = '8765';
 const skipCompile = process.argv.includes('--skip-compile');
 
-function execFileQuiet(command, args, options = {}) {
+function runXattrClear(electronApp) {
   return new Promise((resolve) => {
-    execFile(command, args, options, (error, stdout, stderr) => {
+    execFile('xattr', ['-cr', electronApp], { cwd: root }, (error, stdout, stderr) => {
+      resolve({ error, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+function runLsofPortLookup() {
+  return new Promise((resolve) => {
+    execFile('lsof', ['-ti', `:${apiPort}`], { cwd: root }, (error, stdout, stderr) => {
+      resolve({ error, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+function runKillPids(pids) {
+  return new Promise((resolve) => {
+    execFile('kill', ['-9', ...pids], { cwd: root }, (error, stdout, stderr) => {
+      resolve({ error, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+function runNetstat() {
+  return new Promise((resolve) => {
+    execFile('netstat.exe', ['-ano'], { cwd: root }, (error, stdout, stderr) => {
+      resolve({ error, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+function runTaskkill(pid) {
+  return new Promise((resolve) => {
+    execFile('taskkill.exe', ['/PID', pid, '/F'], { cwd: root }, (error, stdout, stderr) => {
       resolve({ error, stdout: stdout || '', stderr: stderr || '' });
     });
   });
@@ -59,17 +91,14 @@ async function clearMacOSQuarantine() {
   if (process.platform !== 'darwin') return;
 
   const electronApp = path.join(root, 'node_modules', 'electron', 'dist', 'Electron.app');
-  const result = await execFileQuiet('xattr', ['-cr', electronApp]);
+  const result = await runXattrClear(electronApp);
   if (!result.error) {
     console.log('[start] Cleared macOS quarantine flags');
   }
 }
 
 async function killUnixPortProcess() {
-  const lsofPath = process.platform === 'darwin' && fs.existsSync('/usr/sbin/lsof')
-    ? '/usr/sbin/lsof'
-    : 'lsof';
-  const result = await execFileQuiet(lsofPath, ['-ti', `:${apiPort}`], { cwd: root });
+  const result = await runLsofPortLookup();
   const pids = result.stdout
     .split(/\r?\n/)
     .map((pid) => pid.trim())
@@ -77,7 +106,7 @@ async function killUnixPortProcess() {
 
   if (pids.length === 0) return;
 
-  await execFileQuiet('kill', ['-9', ...pids], { cwd: root });
+  await runKillPids(pids);
   console.log(`[start] Killed leftover process(es) on port ${apiPort}: ${pids.join(', ')}`);
 }
 
@@ -100,18 +129,13 @@ function parseWindowsNetstatPids(output) {
 }
 
 async function killWindowsPortProcess() {
-  const result = await execFileQuiet('cmd.exe', [
-    '/d',
-    '/s',
-    '/c',
-    `netstat -ano | findstr :${apiPort}`
-  ], { cwd: root });
+  const result = await runNetstat();
   const pids = parseWindowsNetstatPids(result.stdout);
 
   if (pids.length === 0) return;
 
   for (const pid of pids) {
-    await execFileQuiet('taskkill.exe', ['/PID', pid, '/F'], { cwd: root });
+    await runTaskkill(pid);
   }
   console.log(`[start] Killed leftover process(es) on port ${apiPort}: ${pids.join(', ')}`);
 }
