@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SecretStore } from '../../security/secret-store';
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof fs>('fs');
@@ -26,6 +27,22 @@ import { tandemDir } from '../../utils/paths';
 
 const configPath = tandemDir('google-photos.json');
 const authPath = tandemDir('google-photos-auth.json');
+const secretRecordPath = tandemDir('secret-store', 'google-photos-auth.json');
+
+function createMemorySecretStore(initialValue: string | null = null): SecretStore {
+  let stored = initialValue;
+  return {
+    get: vi.fn(() => stored),
+    set: vi.fn((_key: string, value: string) => {
+      stored = value;
+      return { encoding: 'safe-storage' as const, path: secretRecordPath };
+    }),
+    delete: vi.fn(() => {
+      stored = null;
+    }),
+    getRecordPath: vi.fn(() => secretRecordPath),
+  } as unknown as SecretStore;
+}
 
 describe('GooglePhotosManager', () => {
   const configManager = {
@@ -43,7 +60,8 @@ describe('GooglePhotosManager', () => {
   });
 
   it('stores a client id and reports status', () => {
-    const manager = new GooglePhotosManager(configManager);
+    const secretStore = createMemorySecretStore();
+    const manager = new GooglePhotosManager(configManager, secretStore);
     const status = manager.setClientId('desktop-client-id.apps.googleusercontent.com');
 
     expect(fs.writeFileSync).toHaveBeenCalledWith(
@@ -64,7 +82,7 @@ describe('GooglePhotosManager', () => {
       return '' as any;
     });
 
-    const manager = new GooglePhotosManager(configManager);
+    const manager = new GooglePhotosManager(configManager, createMemorySecretStore());
     const authUrl = manager.beginAuth();
     const url = new URL(authUrl);
 
@@ -110,7 +128,8 @@ describe('GooglePhotosManager', () => {
         ],
       }), { status: 200 }));
 
-    const manager = new GooglePhotosManager(configManager);
+    const secretStore = createMemorySecretStore();
+    const manager = new GooglePhotosManager(configManager, secretStore);
     const result = await manager.uploadScreenshot('/tmp/test.png');
 
     expect(globalThis.fetch).toHaveBeenNthCalledWith(1, 'https://photoslibrary.googleapis.com/v1/uploads', expect.objectContaining({
@@ -125,10 +144,37 @@ describe('GooglePhotosManager', () => {
       mediaItemId: 'media-1',
       productUrl: 'https://photos.google.com/lr/photo/abc',
     });
-    expect(fs.writeFileSync).toHaveBeenCalledWith(
-      authPath,
+    expect(secretStore.set).toHaveBeenLastCalledWith(
+      'google-photos-auth',
       expect.stringContaining('"lastUploadAt"'),
-      { mode: 0o600 },
     );
+  });
+
+  it('migrates legacy Google Photos auth into the encrypted secret store', () => {
+    vi.mocked(fs.existsSync).mockImplementation((filePath) => filePath === authPath);
+    vi.mocked(fs.readFileSync).mockImplementation((filePath) => {
+      if (filePath === authPath) {
+        return JSON.stringify({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresAt: Date.now() + 120_000,
+          scope: 'https://www.googleapis.com/auth/photoslibrary.appendonly',
+          tokenType: 'Bearer',
+          updatedAt: '2026-03-08T00:00:00.000Z',
+        }) as any;
+      }
+      return '' as any;
+    });
+
+    const secretStore = createMemorySecretStore();
+    const manager = new GooglePhotosManager(configManager, secretStore);
+    const status = manager.getStatus();
+
+    expect(status.connected).toBe(true);
+    expect(secretStore.set).toHaveBeenCalledWith(
+      'google-photos-auth',
+      expect.stringContaining('"refreshToken"'),
+    );
+    expect(fs.unlinkSync).toHaveBeenCalledWith(authPath);
   });
 });

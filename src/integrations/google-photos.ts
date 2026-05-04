@@ -5,6 +5,8 @@ import { API_PORT } from '../utils/constants';
 import { tandemDir } from '../utils/paths';
 import type { ConfigManager } from '../config/manager';
 import { createLogger } from '../utils/logger';
+import type { SecretStore } from '../security/secret-store';
+import { getDefaultSecretStore } from '../security/secret-store';
 
 const log = createLogger('GooglePhotos');
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -12,6 +14,7 @@ const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_PHOTOS_UPLOAD_URL = 'https://photoslibrary.googleapis.com/v1/uploads';
 const GOOGLE_PHOTOS_BATCH_CREATE_URL = 'https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate';
 const GOOGLE_PHOTOS_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.appendonly';
+const GOOGLE_PHOTOS_AUTH_SECRET = 'google-photos-auth';
 
 // ─── Types ───
 
@@ -80,11 +83,13 @@ export class GooglePhotosManager {
   private configManager: ConfigManager;
   private configPath: string;
   private authPath: string;
+  private secretStore: SecretStore;
   private pendingAuth: PendingAuth | null = null;
 
   // === 2. Constructor ===
-  constructor(configManager: ConfigManager) {
+  constructor(configManager: ConfigManager, secretStore: SecretStore = getDefaultSecretStore()) {
     this.configManager = configManager;
+    this.secretStore = secretStore;
     const baseDir = tandemDir();
     if (!fs.existsSync(baseDir)) {
       fs.mkdirSync(baseDir, { recursive: true });
@@ -204,6 +209,7 @@ export class GooglePhotosManager {
   /** Disconnect from Google Photos by deleting stored auth tokens. */
   disconnect(): GooglePhotosStatus {
     this.pendingAuth = null;
+    this.secretStore.delete(GOOGLE_PHOTOS_AUTH_SECRET);
     if (fs.existsSync(this.authPath)) {
       fs.unlinkSync(this.authPath);
     }
@@ -291,11 +297,28 @@ export class GooglePhotosManager {
   }
 
   private loadAuth(): GooglePhotosAuth | null {
-    return parseJsonFile<GooglePhotosAuth>(this.authPath);
+    const stored = this.secretStore.get(GOOGLE_PHOTOS_AUTH_SECRET);
+    if (stored) {
+      return JSON.parse(stored) as GooglePhotosAuth;
+    }
+
+    const legacy = parseJsonFile<GooglePhotosAuth>(this.authPath);
+    if (!legacy) {
+      return null;
+    }
+
+    const result = this.secretStore.set(GOOGLE_PHOTOS_AUTH_SECRET, JSON.stringify(legacy, null, 2));
+    if (result.encoding === 'safe-storage') {
+      try { fs.unlinkSync(this.authPath); } catch { /* best effort legacy cleanup */ }
+    }
+    return legacy;
   }
 
   private saveAuth(auth: GooglePhotosAuth): void {
-    fs.writeFileSync(this.authPath, JSON.stringify(auth, null, 2), { mode: 0o600 });
+    const result = this.secretStore.set(GOOGLE_PHOTOS_AUTH_SECRET, JSON.stringify(auth, null, 2));
+    if (result.encoding === 'safe-storage' && fs.existsSync(this.authPath)) {
+      try { fs.unlinkSync(this.authPath); } catch { /* best effort legacy cleanup */ }
+    }
   }
 
   private async getValidAccessToken(): Promise<string | null> {

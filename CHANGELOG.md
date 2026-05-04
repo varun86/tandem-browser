@@ -4,6 +4,36 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
+## [v1.3.0] - 2026-05-04
+
+Windows support Phase 5. Tandem now has a safeStorage-backed secret-store
+adapter for Electron-owned secrets, while preserving the readable local
+`api-token` bootstrap file for MCP and HTTP clients.
+
+### Added
+
+- **Secret store adapter** (`src/security/secret-store/`) - added a small
+  filesystem-backed store with `get`, `set`, and `delete` operations using
+  Electron `safeStorage` for encrypted records.
+- **Plaintext initialization fallback** - when `safeStorage` is unavailable
+  during early initialization, the adapter can write an explicit
+  `plaintext-fallback-on-init` record instead of silently failing.
+- **Secret store tests** - added coverage for encrypted records, plaintext
+  fallback records, deletion, and key validation.
+
+### Changed
+
+- **Google Photos OAuth auth state** - migrated the Electron-owned
+  `google-photos-auth` secret to the new secret store, with legacy plaintext
+  readback and encrypted cleanup for existing installs.
+
+### Technical Details
+
+- Uses Electron `safeStorage.encryptString` and `safeStorage.decryptString`;
+  no `keytar` or new dependency was added.
+- `~/.tandem/api-token` remains plaintext and readable for local MCP/HTTP
+  bootstrap compatibility.
+
 ## [v1.2.0] - 2026-05-04
 
 Windows support Phase 4. Tandem's shared user-data helper now resolves through

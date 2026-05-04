@@ -93,6 +93,9 @@ Last updated: May 4, 2026
 
 ## Recently Completed
 
+- [x] Windows support Phase 5: added the safeStorage-backed secret store with
+  encrypted and plaintext-initialization fallback records, plus Google Photos
+  OAuth auth migration while preserving the local `api-token` bootstrap file
 - [x] Version consistency sweep: package metadata, MCP server version reporting, README / PROJECT / landing-page version labels, and the consistency checker now stay aligned so startup and docs stop lagging behind the changelog
 - [x] Closed-panel Wingman handoff attention state: open handoffs now keep a durable toolbar/toggle cue with count, status-derived urgency, and a non-spammy delayed escalation state so "the agent still needs you" stays visible after the transient popup disappears
 - [x] Explicit human↔agent handoffs: durable handoff records with statuses (`needs_human`, `blocked`, `waiting_approval`, `ready_to_resume`, `completed_review`, `resolved`) now exist across HTTP API, MCP tools, live event surfaces, and the Wingman Activity inbox, with workspace/tab targeting and resolve/resume actions
