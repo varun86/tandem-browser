@@ -14,7 +14,7 @@ Last updated: May 4, 2026
 
 ## Current Snapshot
 
-- Current app version: `1.8.0`
+- Current app version: `1.9.0`
 - MCP server: 253 tools (full API parity + awareness)
 - The codebase scope is larger than this backlog summary and includes major subsystems such as `sidebar`, `workspaces`, `pinboards`, `sync`, `headless`, and `sessions`.
 - Scheduled browsing already exists in baseline form via `WatchManager` and the `/watch/*` API routes.
@@ -94,6 +94,10 @@ Last updated: May 4, 2026
 
 ## Recently Completed
 
+- [x] Windows support Phase 12: centralized shortcut accelerator and label
+  handling, switched Electron menus to `CommandOrControl` accelerator strings,
+  preserved macOS shortcut labels, and rendered Windows shortcut labels as
+  `Ctrl+...`.
 - [x] Windows support Phase 10: moved voice backend selection into the platform
   voice adapter, preserved the macOS Apple Speech path, added Windows
   `whisper.exe` PATH detection for opt-in Whisper transcription, and returns a

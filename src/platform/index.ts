@@ -31,6 +31,11 @@ export type {
 } from './capabilities';
 export { getPlatformCapabilities, normalizePlatform } from './capabilities';
 export type { PlatformAdapter } from './types';
+export {
+  commandOrControlAccelerator,
+  getCommandOrControlLabel,
+  labelShortcutText,
+} from './shortcuts';
 
 function createDarwinPlatform(): PlatformAdapter {
   const id: PlatformId = 'darwin';
