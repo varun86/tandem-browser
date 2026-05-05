@@ -14,7 +14,7 @@ Last updated: May 5, 2026
 
 ## Current Snapshot
 
-- Current app version: `1.9.0`
+- Current app version: `1.10.0`
 - MCP server: 253 tools (full API parity + awareness)
 - The codebase scope is larger than this backlog summary and includes major subsystems such as `sidebar`, `workspaces`, `pinboards`, `sync`, `headless`, and `sessions`.
 - Scheduled browsing already exists in baseline form via `WatchManager` and the `/watch/*` API routes.
@@ -65,6 +65,7 @@ Last updated: May 5, 2026
 - [ ] Expand the new handoff system beyond the first Activity-tab inbox with a dedicated handoff history/detail view; task-linked ready/resume/approve/reject actions now flow through a shared task↔handoff coordinator
 - [x] Add GitHub Actions verification for `npm run verify` on pushes and pull requests
 - [x] Add Windows and macOS startup smoke coverage in GitHub Actions by booting Tandem and polling `http://127.0.0.1:8765/status`
+- [x] Promote Windows `Verify (windows-latest)` to a blocking GitHub Actions check; Linux remains best-effort
 - [ ] Remove deprecated voice-transcription and live-mode main-process code after the shell-side cleanup lands (PR #TBD): preload bindings `window.tandem.transcribeAudio` and `window.tandem.onLiveModeChanged`, IPC handlers, HTTP route `POST /live/toggle` on port 8765, audio transcription pipeline, and MCP tools `tandem_live_toggle`, `tandem_live_status`, `tandem_audio_start`, `tandem_audio_stop`, `tandem_audio_status`, `tandem_audio_recordings`. The shell no longer references any of these.
 - [ ] Restore image support in Wingman chat by routing image sends through the OpenClaw gateway. The legacy `GET/POST /chat` polling bridge was disabled on 17 March 2026 (commit `ede27d82`) and text sends were migrated to the gateway WebSocket, but the image path was not. Today `IpcChannels.CHAT_SEND_IMAGE` in `src/ipc/handlers.ts` only saves the base64 to `~/.tandem/chat-images/` and fires `PanelManager.fireWebhook()` with a `[image attached]` marker — no bytes or URL travel to OpenClaw. Fix: send images through the same gateway path as text (multimodal payload, or upload via `src/api/routes/media.ts` `media-chat-image` bucket and include the URL in the gateway message). Shell-side, collapse `window.tandem.sendChatImage` into `router.sendMessage(text, { image })`.
 

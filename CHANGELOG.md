@@ -4,6 +4,11 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
+### Chore
+
+- chore: Promote the Windows verify matrix job from best-effort to blocking
+  while leaving Linux as the only non-blocking verify platform.
+
 ### Test
 
 - test: Add a Node startup smoke runner that boots Tandem through the
