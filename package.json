@@ -35,6 +35,7 @@
     "postinstall": "electron-rebuild -f -w better-sqlite3",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "verify": "npm run compile && npm run lint && npm test && npm run check-consistency",
+    "smoke:startup": "node tests/smoke/startup-smoke.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:security": "vitest run src/security/tests/",

@@ -4,6 +4,12 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
+### Test
+
+- test: Add a Node startup smoke runner that boots Tandem through the
+  cross-platform startup helper, polls `http://127.0.0.1:8765/status`, and runs
+  in GitHub Actions on Windows and macOS.
+
 ### Changed
 
 - chore: Add a separate Windows release-build workflow that runs on manual

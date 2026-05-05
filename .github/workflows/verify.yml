@@ -32,6 +32,10 @@ jobs:
       - name: Run repository verification
         run: npm run verify
 
+      - name: Run startup smoke test
+        if: ${{ matrix.os == 'macos-latest' || matrix.os == 'windows-latest' }}
+        run: npm run smoke:startup
+
       - name: Generate coverage report
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: npx vitest run --coverage
