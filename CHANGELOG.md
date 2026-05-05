@@ -14,6 +14,44 @@ All notable changes to Tandem Browser will be documented in this file.
   portable artifacts with target-specific `setup` and `portable` artifact
   names, while leaving the existing macOS packaging config unchanged.
 
+## [v1.10.0] - 2026-05-05
+
+Windows support Phase 15. Tandem now has a Windows-only manual update path that
+checks GitHub Releases through `electron-updater`, lets the user choose whether
+to download an available update, and only installs after an explicit restart
+confirmation. Production Windows auto-update remains blocked until Windows
+installers are signed and an end-to-end update installation is verified.
+
+### Added
+
+- **Windows updater adapter** (`src/platform/updates/`) - adds a Windows-gated
+  `electron-updater` integration with `autoDownload` and automatic install on
+  quit disabled.
+- **Manual update menu action** (`src/menu/app-menu.ts`) - shows **Check for
+  Updates** only on platforms whose adapter supports updater checks.
+- **Windows update metadata** (`package.json`,
+  `.github/workflows/release-win.yml`) - configures GitHub Releases as the
+  Windows update source and verifies `latest.yml` is generated for unsigned
+  workflow artifacts.
+
+### Changed
+
+- **Version references** (`package.json`, `package-lock.json`, `README.md`,
+  `PROJECT.md`, `docs/index.html`) - bumped Tandem Browser to `1.10.0`.
+- **Platform support tracking** (`docs/platform-support.md`,
+  `src/platform/capabilities.ts`) - records Windows auto-update as partial
+  until signed Windows releases and end-to-end update installation are verified.
+
+### Technical Details
+
+- The updater module lives behind the platform adapter boundary; macOS update
+  behavior and macOS release configuration are untouched.
+- The Windows release workflow still uses `--publish never`; it uploads
+  `latest.yml` as a short-lived GitHub Actions artifact only and does not create
+  or publish a GitHub Release.
+- Windows update signature verification is not disabled. Unsigned artifacts are
+  not production-ready update payloads.
+
 ## [v1.9.0] - 2026-05-04
 
 Windows support Phase 12. Tandem now keeps Electron shortcut accelerators on

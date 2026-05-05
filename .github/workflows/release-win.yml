@@ -41,6 +41,19 @@ jobs:
       - name: Build unsigned NSIS and portable artifacts
         run: npx electron-builder --win nsis portable --x64 --publish never
 
+      - name: Verify Windows update metadata was generated
+        shell: pwsh
+        run: |
+          $metadata = Join-Path $PWD 'release\latest.yml'
+          if (-not (Test-Path $metadata)) {
+            throw 'latest.yml was not generated for the Windows update feed.'
+          }
+
+          $metadataText = Get-Content $metadata -Raw
+          if ($metadataText -notmatch 'tandem-browser-.+-x64-setup\.exe') {
+            throw 'latest.yml does not reference the Windows NSIS setup artifact.'
+          }
+
       - name: Verify artifacts are unsigned
         shell: pwsh
         run: |
@@ -65,9 +78,10 @@ jobs:
           Status: unsigned
           Code signing: deferred
           Distribution: GitHub Actions workflow artifact only
-          Auto-update feed: not generated
+          Auto-update feed: generated for validation only, not published
 
           These artifacts are for release-pipeline validation and are not an official public Windows release.
+          Production Windows auto-update remains blocked until Windows code signing is configured and end-to-end update installation is verified.
           '@ | Set-Content -Encoding UTF8 release\UNSIGNED-WINDOWS-BUILD.txt
 
       - name: Upload unsigned Windows artifacts
@@ -78,5 +92,7 @@ jobs:
           retention-days: 14
           path: |
             release/tandem-browser-*-x64-setup.exe
+            release/tandem-browser-*-x64-setup.exe.blockmap
             release/tandem-browser-*-x64-portable.exe
+            release/latest.yml
             release/UNSIGNED-WINDOWS-BUILD.txt

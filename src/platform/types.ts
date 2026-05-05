@@ -1,4 +1,4 @@
-import type { Session } from 'electron';
+import type { BrowserWindow, Session } from 'electron';
 import type { ConfigManager } from '../config/manager';
 import type { ChromeImporter, ChromeImportStatus } from '../import/chrome-importer';
 import type {
@@ -85,6 +85,11 @@ export interface SecretsAdapter {
   loadOrCreateInstallSecret(): string;
 }
 
+export interface UpdaterAdapter {
+  isSupported(): boolean;
+  checkForUpdates(options?: { mainWindow?: BrowserWindow | null }): Promise<void>;
+}
+
 export interface PlatformAdapter {
   id: PlatformId;
   capabilities: PlatformSupportProfile;
@@ -97,6 +102,7 @@ export interface PlatformAdapter {
   windowChrome: WindowChromeAdapter;
   stealthUa: StealthUaAdapter;
   secrets: SecretsAdapter;
+  updater: UpdaterAdapter;
 }
 
 export interface StealthUaBrandVersion {

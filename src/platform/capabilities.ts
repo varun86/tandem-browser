@@ -66,7 +66,7 @@ const CAPABILITY_PROFILES: Record<PlatformId, PlatformSupportProfile> = {
     capabilities: {
       appStartup: unsupportedCapability('Blocked by Unix-only start script until windows-support phase 2.'),
       signedInstaller: unsupportedCapability('Windows installer planned in windows-support phases 13-14.'),
-      autoUpdate: unsupportedCapability('Windows update feed planned in windows-support phase 15.'),
+      autoUpdate: { status: 'partial', notes: 'Manual electron-updater checks and latest.yml generation exist; production update installation remains blocked until Windows installers are signed and end-to-end update installation is verified.' },
       windowChrome: { status: 'supported', notes: 'Frameless custom titlebar with shell controls is implemented for source runs.' },
       stealthUa: { status: 'supported', notes: 'Windows source runs present a Chrome-on-Windows UA persona.' },
       chromeBookmarkHistoryImport: { status: 'supported', notes: 'Windows Chrome bookmark and history import scans LOCALAPPDATA/Google/Chrome/User Data profiles.' },

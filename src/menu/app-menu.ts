@@ -7,6 +7,7 @@ import type { VoiceManager } from '../voice/recognition';
 import type { PiPManager } from '../pip/manager';
 import type { ConfigManager } from '../config/manager';
 import type { VideoRecorderManager } from '../video/recorder';
+import type { UpdaterAdapter } from '../platform/types';
 import { IpcChannels } from '../shared/ipc-channels';
 import { commandOrControlAccelerator } from '../platform/shortcuts';
 
@@ -19,11 +20,20 @@ export interface MenuDeps {
   pipManager: PiPManager | null;
   configManager: ConfigManager | null;
   videoRecorderManager: VideoRecorderManager | null;
+  updater: UpdaterAdapter | null;
 }
 
 export function buildAppMenu(deps: MenuDeps): void {
   const send = (action: string) => deps.mainWindow?.webContents.send(IpcChannels.SHORTCUT, action);
   const acc = commandOrControlAccelerator;
+  const updateMenuItems: Electron.MenuItemConstructorOptions[] = deps.updater?.isSupported()
+    ? [
+        { label: 'Check for Updates', click: () => {
+          void deps.updater?.checkForUpdates({ mainWindow: deps.mainWindow });
+        }},
+        { type: 'separator' },
+      ]
+    : [];
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
@@ -81,6 +91,7 @@ export function buildAppMenu(deps: MenuDeps): void {
     {
       label: 'Help',
       submenu: [
+        ...updateMenuItems,
         { label: 'Keyboard Shortcuts', accelerator: acc('Shift+/'), click: () => send('show-shortcuts') },
         { type: 'separator' },
         { label: 'Show Onboarding', click: () => send('show-onboarding') },

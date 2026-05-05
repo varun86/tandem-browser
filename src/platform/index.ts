@@ -12,6 +12,7 @@ import { createProcessAdapter } from './process';
 import { createDarwinSecretsAdapter, createUnsupportedSecretsAdapter } from './secrets';
 import { createDarwinStealthUaAdapter, createUnsupportedStealthUaAdapter, createWindowsStealthUaAdapter } from './stealth-ua';
 import type { PlatformAdapter } from './types';
+import { createUnsupportedUpdaterAdapter, createWindowsUpdaterAdapter } from './updates';
 import { createDarwinVideoAudioAdapter, createUnsupportedVideoAudioAdapter } from './video-audio';
 import { createDarwinVoiceAdapter, createLinuxVoiceAdapter, createUnsupportedVoiceAdapter, createWindowsVoiceAdapter } from './voice';
 import {
@@ -51,6 +52,7 @@ function createDarwinPlatform(): PlatformAdapter {
     windowChrome: createDarwinWindowChromeAdapter(),
     stealthUa: createDarwinStealthUaAdapter(),
     secrets: createDarwinSecretsAdapter(),
+    updater: createUnsupportedUpdaterAdapter(id),
   };
 }
 
@@ -91,6 +93,9 @@ function createStubPlatform(id: PlatformId): PlatformAdapter {
         ? createDarwinStealthUaAdapter()
         : createUnsupportedStealthUaAdapter(id),
     secrets: createUnsupportedSecretsAdapter(id),
+    updater: id === 'win32'
+      ? createWindowsUpdaterAdapter()
+      : createUnsupportedUpdaterAdapter(id),
   };
 }
 

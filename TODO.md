@@ -72,7 +72,7 @@ Last updated: May 4, 2026
 ### Distribution and UX
 
 - [ ] Full multi-profile UX on top or the existing `SessionManager` isolation model
-- [ ] Auto-updater integration (`electron-updater`); `release/` still contains an old `0.1.0` manifest
+- [ ] Windows auto-update production readiness: Phase 15 added the Windows-only manual `electron-updater` check path and `latest.yml` workflow metadata, but real user update installation remains blocked until signed Windows installers are published through GitHub Releases and end-to-end update installation is verified.
 - [ ] Production-ready DMG build for macOS with current naming and metadata
 - [ ] AppImage build for Linux
 - [ ] Documentation site

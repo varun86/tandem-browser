@@ -39,7 +39,7 @@
 |------------|-------|---------|-------|-------|
 | App startup (`npm start` from source) | supported | unsupported | partial | Windows blocked by Unix-only start script; fixed in windows-support phase 2. |
 | Signed installer | supported | unsupported | unsupported | Windows unsigned release-build workflow artifacts exist for pipeline validation; signing remains deferred and public Windows release remains unannounced. |
-| Auto-update | supported | unsupported | unsupported | Windows feed planned in windows-support phase 15. |
+| Auto-update | supported | partial | unsupported | Windows has a manual `electron-updater` check path and generated `latest.yml` workflow metadata, but production auto-update remains blocked until Windows installers are signed and end-to-end update installation is verified. |
 | Custom titlebar / window chrome | supported | supported | supported | Windows source runs use frameless shell-owned controls; public Windows release remains unannounced. |
 | Stealth UA matches host OS | supported | supported | partial | Windows source runs present Chrome on Windows; public Windows release remains unannounced. |
 | Chrome bookmark + history import | supported | supported | partial | Windows source runs scan `%LOCALAPPDATA%\Google\Chrome\User Data\<Profile>\` for bookmark and history import. |
