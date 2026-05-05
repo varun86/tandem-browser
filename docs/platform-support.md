@@ -38,7 +38,7 @@
 | Capability | macOS | Windows | Linux | Notes |
 |------------|-------|---------|-------|-------|
 | App startup (`npm start` from source) | supported | unsupported | partial | Windows blocked by Unix-only start script; fixed in windows-support phase 2. |
-| Signed installer | supported | unsupported | unsupported | Windows installer planned in windows-support phase 13–14. |
+| Signed installer | supported | unsupported | unsupported | Windows unsigned release-build workflow artifacts exist for pipeline validation; signing remains deferred and public Windows release remains unannounced. |
 | Auto-update | supported | unsupported | unsupported | Windows feed planned in windows-support phase 15. |
 | Custom titlebar / window chrome | supported | supported | supported | Windows source runs use frameless shell-owned controls; public Windows release remains unannounced. |
 | Stealth UA matches host OS | supported | supported | partial | Windows source runs present Chrome on Windows; public Windows release remains unannounced. |
