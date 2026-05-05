@@ -4,7 +4,22 @@ All notable changes to Tandem Browser will be documented in this file.
 
 ## Unreleased
 
-No unreleased changes yet.
+### Added
+
+- **OpenClaw-free Wingman chat path** (`shell/chat/tandem-local-backend.js`,
+  `src/api/routes/media.ts`, `src/mcp/tools/chat.ts`) - adds a built-in
+  Tandem local chat backend so MCP/API agents can read Robin's Wingman chat
+  messages and reply into the panel without requiring OpenClaw on the host.
+  OpenClaw remains available as a separate backend and the shell falls back to
+  Tandem local chat when the gateway is not reachable.
+
+### Changed
+
+- **Wingman chat channel selector** (`shell/js/wingman/chat.js`,
+  `shell/chat/tandem-local-backend.js`) - now shows only chat channels for
+  agents configured in Connected Agents, so a lone Codex binding no longer
+  exposes stale OpenClaw/Claude tabs or lets the legacy Claude polling backend
+  mirror the Codex conversation.
 
 ## [v1.10.0] - 2026-05-05
 

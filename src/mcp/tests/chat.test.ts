@@ -33,7 +33,7 @@ describe('MCP chat tools', () => {
       mockApiCall.mockResolvedValueOnce({});
       const result = await handler({ text: 'Hello Robin' });
       expectTextContent(result, 'Message sent: "Hello Robin"');
-      expect(mockApiCall).toHaveBeenCalledWith('POST', '/chat', { text: 'Hello Robin', from: 'wingman' });
+      expect(mockApiCall).toHaveBeenCalledWith('POST', '/chat', { text: 'Hello Robin' });
     });
 
     it('uses the MCP connector source in chat messages', async () => {
@@ -61,6 +61,63 @@ describe('MCP chat tools', () => {
       mockApiCall.mockResolvedValueOnce({ messages: [] });
       const result = await handler({ limit: 10 });
       expectTextContent(result, '(0 messages)');
+    });
+  });
+
+  describe('tandem_chat_reply', () => {
+    const handler = getHandler(tools, 'tandem_chat_reply');
+
+    it('replies through the local Tandem chat route', async () => {
+      mockApiCall.mockResolvedValueOnce({});
+      const result = await handler({ text: 'I can answer here now' });
+      expectTextContent(result, 'Reply sent: "I can answer here now"');
+      expect(mockApiCall).toHaveBeenCalledWith('POST', '/chat/messages', { text: 'I can answer here now' });
+    });
+  });
+
+  describe('tandem_chat_wait_for_message', () => {
+    const handler = getHandler(tools, 'tandem_chat_wait_for_message');
+
+    it('formats new messages returned by long poll', async () => {
+      mockApiCall.mockResolvedValueOnce({
+        messages: [{ id: 2, from: 'user', text: 'are you there?', timestamp: 1700000000000 }],
+        timedOut: false,
+      });
+
+      const result = await handler({ sinceId: 1, timeoutMs: 1000 });
+      const text = expectTextContent(result, 'New chat messages (1)');
+      expect(text).toContain('#2');
+      expect(text).toContain('user: are you there?');
+      expect(mockApiCall).toHaveBeenCalledWith('GET', '/chat/wait?since_id=1&timeout_ms=1000');
+    });
+
+    it('reports timeout with no messages', async () => {
+      mockApiCall.mockResolvedValueOnce({ messages: [], timedOut: true });
+      const result = await handler({ sinceId: 5, timeoutMs: 1000 });
+      expectTextContent(result, 'No new chat messages before timeout.');
+    });
+  });
+
+  describe('tandem_chat_set_typing', () => {
+    const handler = getHandler(tools, 'tandem_chat_set_typing');
+
+    it('sets typing status', async () => {
+      mockApiCall.mockResolvedValueOnce({});
+      const result = await handler({ typing: true });
+      expectTextContent(result, 'Typing indicator enabled.');
+      expect(mockApiCall).toHaveBeenCalledWith('POST', '/chat/typing', { typing: true });
+    });
+  });
+
+  describe('tandem_chat_status', () => {
+    const handler = getHandler(tools, 'tandem_chat_status');
+
+    it('returns local chat bus status', async () => {
+      mockApiCall.mockResolvedValueOnce({ available: true, backend: 'tandem', lastMessageId: 7 });
+      const result = await handler({});
+      const text = expectTextContent(result, 'Tandem chat status: available');
+      expect(text).toContain('lastMessageId: 7');
+      expect(mockApiCall).toHaveBeenCalledWith('GET', '/chat/status');
     });
   });
 

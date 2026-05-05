@@ -28,10 +28,12 @@ export function createPanelApi() {
     },
     sendChatImage: (text: string, image: string) => ipcRenderer.invoke(IpcChannels.CHAT_SEND_IMAGE, { text, image }),
     persistChatMessage: (data: {
-      from: 'user' | 'wingman' | 'claude';
+      from: string;
       text?: string;
       image?: string;
       notifyWebhook?: boolean;
+      actorLabel?: string;
+      agentType?: string;
     }) => ipcRenderer.invoke(IpcChannels.CHAT_PERSIST_MESSAGE, data),
     onWingmanAlert: (callback: (data: { title: string; body: string }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: { title: string; body: string }) => callback(data);

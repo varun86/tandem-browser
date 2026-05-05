@@ -52,6 +52,7 @@ Last updated: May 5, 2026
 
 - [ ] Finish Cloudflare human mode phases 4-5 so challenge-sensitive tabs pause cleanly for the human and resume conservatively after `cf_clearance`; phase 3 now gates ScriptGuard and resource monitoring on Cloudflare tabs
 - [x] Make Wingman `openclaw` mode gateway-first for sends, sign a real OpenClaw device identity for the WebSocket handshake, and persist gateway replies into Tandem chat history so stock Tandem no longer depends on a local OpenClaw tandem-chat skill
+- [x] Add a built-in Tandem local Wingman chat backend so MCP/API agents can read and reply in the panel without requiring OpenClaw on the host, while keeping the OpenClaw gateway backend available when installed
 - [x] Split `src/main.ts` bootstrap and teardown wiring into dedicated `src/bootstrap/` modules so manager composition stops growing in one file
 - [x] Extract the largest shell surfaces out of `shell/index.html` and `shell/css/main.css` so sidebar logic, modal helpers, and stylesheet sections stop living in single inline or monolithic files
 - [x] Split the Wingman and ClaroNote renderer surfaces out of `shell/js/main.js` into dedicated shell modules with explicit shared state instead of file-scope coupling

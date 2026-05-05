@@ -120,6 +120,7 @@ export function createMockContext(): RouteContext {
       getChatMessages: vi.fn().mockReturnValue([]),
       getChatMessagesSince: vi.fn().mockReturnValue([]),
       addChatMessage: vi.fn().mockReturnValue({ id: 1, from: 'wingman', text: '', ts: Date.now() }),
+      clearChatMessages: vi.fn(),
       saveImage: vi.fn().mockReturnValue('image.png'),
       getImagePath: vi.fn().mockReturnValue('/tmp/image.png'),
       setWingmanTyping: vi.fn(),

@@ -106,6 +106,17 @@ describe('Media Routes', () => {
       expect(ctx.panelManager.getChatMessages).toHaveBeenCalledWith(10);
     });
 
+    it('supports /chat/messages as the local chat bus alias', async () => {
+      const fakeMessages = [{ id: 1, from: 'user', text: 'local', ts: 1000 }];
+      vi.mocked(ctx.panelManager.getChatMessages).mockReturnValue(fakeMessages as any);
+
+      const res = await request(app).get('/chat/messages?limit=5');
+
+      expect(res.status).toBe(200);
+      expect(res.body.messages).toEqual(fakeMessages);
+      expect(ctx.panelManager.getChatMessages).toHaveBeenCalledWith(5);
+    });
+
     it('supports ?since_id= for polling', async () => {
       const newMessages = [{ id: 3, from: 'user', text: 'new', ts: 2000 }];
       vi.mocked(ctx.panelManager.getChatMessagesSince).mockReturnValue(newMessages as any);
@@ -150,7 +161,10 @@ describe('Media Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
       expect(res.body.message).toEqual(fakeMsg);
-      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('wingman', 'hello', undefined);
+      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('wingman', 'hello', undefined, {
+        actorLabel: undefined,
+        agentType: undefined,
+      });
     });
 
     it('maps from=user to sender user', async () => {
@@ -158,7 +172,10 @@ describe('Media Routes', () => {
         .post('/chat')
         .send({ text: 'hi', from: 'user' });
 
-      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('user', 'hi', undefined);
+      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('user', 'hi', undefined, {
+        actorLabel: undefined,
+        agentType: undefined,
+      });
     });
 
     it('maps from=claude to sender claude', async () => {
@@ -166,15 +183,21 @@ describe('Media Routes', () => {
         .post('/chat')
         .send({ text: 'hi', from: 'claude' });
 
-      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('claude', 'hi', undefined);
+      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('claude', 'hi', undefined, {
+        actorLabel: 'Claude',
+        agentType: undefined,
+      });
     });
 
-    it('maps unknown from value to wingman', async () => {
+    it('accepts arbitrary agent source values', async () => {
       await request(app)
         .post('/chat')
-        .send({ text: 'hi', from: 'unknown' });
+        .send({ text: 'hi', from: 'codex' });
 
-      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('wingman', 'hi', undefined);
+      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('codex', 'hi', undefined, {
+        actorLabel: 'Codex',
+        agentType: undefined,
+      });
     });
 
     it('sends a message with an image', async () => {
@@ -185,7 +208,10 @@ describe('Media Routes', () => {
         .send({ text: 'look at this', image: 'data:image/png;base64,abc' });
 
       expect(ctx.panelManager.saveImage).toHaveBeenCalledWith('data:image/png;base64,abc');
-      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('wingman', 'look at this', 'saved.png');
+      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('wingman', 'look at this', 'saved.png', {
+        actorLabel: undefined,
+        agentType: undefined,
+      });
     });
 
     it('sends a message with image only (no text)', async () => {
@@ -195,7 +221,21 @@ describe('Media Routes', () => {
         .post('/chat')
         .send({ image: 'data:image/png;base64,abc' });
 
-      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('wingman', '', 'saved.png');
+      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('wingman', '', 'saved.png', {
+        actorLabel: undefined,
+        agentType: undefined,
+      });
+    });
+
+    it('supports POST /chat/messages as the local chat bus alias', async () => {
+      await request(app)
+        .post('/chat/messages')
+        .send({ text: 'hi from robin', from: 'user' });
+
+      expect(ctx.panelManager.addChatMessage).toHaveBeenCalledWith('user', 'hi from robin', undefined, {
+        actorLabel: undefined,
+        agentType: undefined,
+      });
     });
 
     it('returns 400 when neither text nor image is provided', async () => {
@@ -218,6 +258,35 @@ describe('Media Routes', () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('chat send error');
+    });
+  });
+
+  describe('GET /chat/status', () => {
+    it('returns local chat bus status', async () => {
+      vi.mocked(ctx.panelManager.getChatMessages).mockReturnValue([{ id: 12, from: 'user', text: 'last', timestamp: 1000 }] as any);
+
+      const res = await request(app).get('/chat/status');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        ok: true,
+        backend: 'tandem',
+        available: true,
+        lastMessageId: 12,
+        primaryAgent: null,
+        connectedAgents: [],
+      });
+      expect(ctx.panelManager.getChatMessages).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('DELETE /chat/messages', () => {
+    it('clears local chat history', async () => {
+      const res = await request(app).delete('/chat/messages');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ ok: true, cleared: true });
+      expect(ctx.panelManager.clearChatMessages).toHaveBeenCalled();
     });
   });
 

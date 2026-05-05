@@ -43,7 +43,7 @@ describe('ConfigManager', () => {
       expect(config.general.wingmanPanelPosition).toBe('right');
       expect(config.general.wingmanPanelDefaultOpen).toBe(false);
       expect(config.general.showBookmarksBar).toBe(true);
-      expect(config.general.activeBackend).toBe('openclaw');
+      expect(config.general.activeBackend).toBe('tandem');
       expect(config.general.agentName).toBe('Wingman');
       expect(config.general.agentDisplayName).toBe('AI Wingman');
       expect(config.general.quickLinks).toHaveLength(6);

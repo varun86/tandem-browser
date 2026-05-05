@@ -43,7 +43,20 @@ export function createStreamingRenderer({ messagesEl }) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
   }
 
-  function appendMessage(role, text, timestamp, source, image) {
+  function labelForSource(sourceClass, actorLabel) {
+    if (actorLabel && typeof actorLabel === 'string') return actorLabel;
+    if (sourceClass === 'claude') return 'Claude';
+    if (sourceClass === 'codex') return 'Codex';
+    if (sourceClass === 'openclaw') return 'OpenClaw';
+    if (sourceClass === 'tandem') return 'Tandem';
+    return 'Wingman';
+  }
+
+  function classForSource(sourceClass) {
+    return String(sourceClass || 'openclaw').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  }
+
+  function appendMessage(role, text, timestamp, source, image, actorLabel) {
     const sourceClass = source || 'openclaw';
     let cls, name;
     if (role === 'user') {
@@ -51,19 +64,20 @@ export function createStreamingRenderer({ messagesEl }) {
       name = 'You';
     } else if (sourceClass === 'claude') {
       cls = 'claude';
-      name = 'Claude';
+      name = labelForSource(sourceClass, actorLabel);
     } else {
       cls = 'wingman';
-      name = 'Wingman';
+      name = labelForSource(sourceClass, actorLabel);
     }
     const el = document.createElement('div');
-    el.className = `chat-msg ${cls} source-${source || sourceClass}`;
+    el.className = `chat-msg ${cls} source-${classForSource(source || sourceClass)}`;
     el.innerHTML = `<div class="msg-from">${escapeHtml(name)}</div><div class="msg-text">${escapeHtml(text)}</div><div class="msg-time">${formatTime(timestamp)}</div>`;
     // Add image if present
     if (image) {
       const msgText = el.querySelector('.msg-text');
       const img = document.createElement('img');
-      img.src = `http://localhost:8765/chat/image/${image}`;
+      const apiBase = window.tandemApi?.baseUrl() || window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765';
+      img.src = `${apiBase}/chat/image/${image}`;
       img.className = 'chat-msg-image';
       img.addEventListener('click', () => window.open(img.src, '_blank'));
       img.onerror = () => { img.style.display = 'none'; };
@@ -104,7 +118,7 @@ export function createStreamingRenderer({ messagesEl }) {
 
       if (Array.isArray(msg)) {
         for (const historyMsg of msg) {
-          const el = appendMessage(historyMsg.role, historyMsg.text, historyMsg.timestamp, historyMsg.source, historyMsg.image);
+          const el = appendMessage(historyMsg.role, historyMsg.text, historyMsg.timestamp, historyMsg.source, historyMsg.image, historyMsg.actorLabel);
           el.dataset.fromHistory = 'true';
         }
       }
@@ -139,7 +153,7 @@ export function createStreamingRenderer({ messagesEl }) {
       let streamData = streamingMessages.get(currentConversationId);
       if (!streamData) {
         // Create new streaming message element - always insert at the very end
-        const element = appendMessage(msg.role, msg.text, msg.timestamp, msg.source, msg.image);
+        const element = appendMessage(msg.role, msg.text, msg.timestamp, msg.source, msg.image, msg.actorLabel);
         streamData = {
           element,
           startTime: Date.now(),
@@ -180,7 +194,7 @@ export function createStreamingRenderer({ messagesEl }) {
       }
       // Only append a new element if this is NOT a final event (final reuses the streaming element)
       if (!msg._final) {
-        appendMessage(msg.role, msg.text, msg.timestamp, msg.source, msg.image);
+        appendMessage(msg.role, msg.text, msg.timestamp, msg.source, msg.image, msg.actorLabel);
         if (backendId === 'openclaw' && msg.text) {
           void persistChatMessage('wingman', msg.text, msg.image);
         }
@@ -213,7 +227,7 @@ export function createStreamingRenderer({ messagesEl }) {
 
       if (Array.isArray(msg)) {
         for (const m of msg) {
-          const el = appendMessage(m.role, m.text, m.timestamp, m.source, m.image);
+          const el = appendMessage(m.role, m.text, m.timestamp, m.source, m.image, m.actorLabel);
           el.dataset.fromHistory = 'true';
         }
 
@@ -240,7 +254,7 @@ export function createStreamingRenderer({ messagesEl }) {
 
       if (!streamData) {
         // Create new streaming message element
-        const element = appendMessage(msg.role, msg.text, msg.timestamp, msg.source, msg.image);
+        const element = appendMessage(msg.role, msg.text, msg.timestamp, msg.source, msg.image, msg.actorLabel);
         streamData = {
           element,
           startTime: Date.now(),
@@ -279,7 +293,7 @@ export function createStreamingRenderer({ messagesEl }) {
         void persistChatMessage('wingman', msg.text);
       }
       if (!msg._final) {
-        appendMessage(msg.role, msg.text, msg.timestamp, msg.source, msg.image);
+        appendMessage(msg.role, msg.text, msg.timestamp, msg.source, msg.image, msg.actorLabel);
         if (backendId === 'openclaw' && msg.text) {
           void persistChatMessage('wingman', msg.text, msg.image);
         }

@@ -173,10 +173,12 @@ export function registerIpcHandlers(deps: IpcDeps): void {
   });
 
   ipcMain.handle(IpcChannels.CHAT_PERSIST_MESSAGE, async (_event, data: {
-    from: 'user' | 'wingman' | 'claude';
+    from: string;
     text?: string;
     image?: string;
     notifyWebhook?: boolean;
+    actorLabel?: string;
+    agentType?: string;
   }) => {
     const text = typeof data?.text === 'string' ? data.text : '';
     const image = typeof data?.image === 'string' ? data.image : undefined;
@@ -194,6 +196,8 @@ export function registerIpcHandlers(deps: IpcDeps): void {
       {
         notifyWebhook: data.notifyWebhook,
         emitIpc: false,
+        actorLabel: data.actorLabel,
+        agentType: data.agentType,
       },
     );
     return { ok: true, message: msg };

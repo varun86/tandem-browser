@@ -12,6 +12,54 @@ interface ScreenshotRegion {
   height: number;
 }
 
+function normalizeChatSender(from: unknown): string {
+  if (typeof from !== 'string') return 'wingman';
+  const normalized = from.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return normalized || 'wingman';
+}
+
+function deriveActorLabel(sender: string, explicitLabel: unknown): string | undefined {
+  if (typeof explicitLabel === 'string' && explicitLabel.trim()) {
+    return explicitLabel.trim().slice(0, 80);
+  }
+  if (sender === 'user') return undefined;
+  if (sender === 'codex') return 'Codex';
+  if (sender === 'claude') return 'Claude';
+  if (sender === 'openclaw') return 'OpenClaw';
+  if (sender === 'wingman') return undefined;
+  return sender
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+    .slice(0, 80);
+}
+
+function getPrimaryChatAgent(ctx: RouteContext): { id: string; label: string; type: string } | null {
+  const paired = ctx.pairingManager
+    .listBindings()
+    .filter(binding => binding.state === 'paired');
+  const local = paired.find(binding => binding.bindingKind === 'local') ?? paired[0];
+  if (!local) return null;
+  return {
+    id: local.id,
+    label: local.agentLabel,
+    type: local.agentType,
+  };
+}
+
+function parseChatLimit(rawLimit: unknown): number {
+  const limit = parseInt(String(rawLimit ?? ''), 10);
+  if (!Number.isFinite(limit) || limit <= 0) return 50;
+  return Math.min(limit, 200);
+}
+
+function parseSinceId(rawSinceId: unknown): number | null {
+  const sinceId = parseInt(String(rawSinceId ?? ''), 10);
+  if (!Number.isFinite(sinceId) || sinceId <= 0) return null;
+  return sinceId;
+}
+
 function renderGooglePhotosAuthPage(opts: { ok: boolean; title: string; message: string; detail?: string }): string {
   return `<!doctype html>
 <html>
@@ -94,34 +142,106 @@ export function registerMediaRoutes(router: Router, ctx: RouteContext): void {
   // ═══════════════════════════════════════════════
 
   /** Get chat messages (supports ?since_id= for polling) */
-  router.get('/chat', (req: Request, res: Response) => {
+  const getChatMessages = (req: Request, res: Response) => {
     try {
-      const sinceId = parseInt(req.query.since_id as string);
-      if (sinceId && !isNaN(sinceId)) {
+      const sinceId = parseSinceId(req.query.since_id);
+      if (sinceId) {
         const messages = ctx.panelManager.getChatMessagesSince(sinceId);
         res.json({ messages });
       } else {
-        const limit = parseInt(req.query.limit as string) || 50;
+        const limit = parseChatLimit(req.query.limit);
         const messages = ctx.panelManager.getChatMessages(limit);
         res.json({ messages });
       }
     } catch (e) {
       handleRouteError(res, e);
     }
-  });
+  };
+  router.get('/chat', getChatMessages);
+  router.get('/chat/messages', getChatMessages);
 
   /** Send chat message (default: wingman, 'from' param allows robin/claude) */
-  router.post('/chat', (req: Request, res: Response) => {
-    const { text, from, image } = req.body;
+  const postChatMessage = (req: Request, res: Response) => {
+    const { text, from, image, actorLabel, agentType } = req.body;
     if (!text && !image) { res.status(400).json({ error: 'text or image required' }); return; }
-    const sender: 'user' | 'wingman' | 'claude' = (from === 'user') ? 'user' : (from === 'claude') ? 'claude' : 'wingman';
+    const primaryAgent = getPrimaryChatAgent(ctx);
+    const sender = normalizeChatSender(from ?? primaryAgent?.type);
+    const resolvedActorLabel = deriveActorLabel(sender, actorLabel ?? (sender === primaryAgent?.type ? primaryAgent?.label : undefined));
     try {
       let savedImage: string | undefined;
       if (image) {
         savedImage = ctx.panelManager.saveImage(image);
       }
-      const msg = ctx.panelManager.addChatMessage(sender, text || '', savedImage);
+      const msg = ctx.panelManager.addChatMessage(sender, text || '', savedImage, {
+        actorLabel: resolvedActorLabel,
+        agentType: typeof agentType === 'string' ? agentType : primaryAgent?.type,
+      });
       res.json({ ok: true, message: msg });
+    } catch (e) {
+      handleRouteError(res, e);
+    }
+  };
+  router.post('/chat', postChatMessage);
+  router.post('/chat/messages', postChatMessage);
+
+  /** Clear chat messages for the local Tandem chat bus. */
+  const deleteChatMessages = (_req: Request, res: Response) => {
+    try {
+      ctx.panelManager.clearChatMessages();
+      res.json({ ok: true, cleared: true });
+    } catch (e) {
+      handleRouteError(res, e);
+    }
+  };
+  router.delete('/chat', deleteChatMessages);
+  router.delete('/chat/messages', deleteChatMessages);
+
+  /** Wait briefly for new chat messages without forcing MCP clients to poll tightly. */
+  router.get('/chat/wait', async (req: Request, res: Response) => {
+    const sinceId = parseSinceId(req.query.since_id) ?? 0;
+    const timeoutMs = Math.min(parseInt(String(req.query.timeout_ms ?? '30000'), 10) || 30_000, 30_000);
+    const startedAt = Date.now();
+
+    try {
+      while (Date.now() - startedAt < timeoutMs) {
+        const messages = ctx.panelManager.getChatMessagesSince(sinceId);
+        if (messages.length > 0) {
+          res.json({ messages, timedOut: false });
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      res.json({ messages: [], timedOut: true });
+    } catch (e) {
+      handleRouteError(res, e);
+    }
+  });
+
+  /** Local chat bus health/status for renderer backends and agents. */
+  router.get('/chat/status', (_req: Request, res: Response) => {
+    try {
+      const recent = ctx.panelManager.getChatMessages(1);
+      const lastMessageId = recent[0]?.id ?? 0;
+      const connectedAgents = ctx.pairingManager
+        .listBindings()
+        .filter(binding => binding.state === 'paired')
+        .map(binding => ({
+          id: binding.id,
+          label: binding.agentLabel,
+          type: binding.agentType,
+          bindingKind: binding.bindingKind,
+          transportModes: binding.transportModes,
+          lastUsedAt: binding.lastUsedAt,
+        }));
+      const primaryAgent = getPrimaryChatAgent(ctx);
+      res.json({
+        ok: true,
+        backend: 'tandem',
+        available: true,
+        lastMessageId,
+        primaryAgent,
+        connectedAgents,
+      });
     } catch (e) {
       handleRouteError(res, e);
     }

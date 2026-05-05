@@ -20,15 +20,20 @@ export interface ActivityEvent {
 
 export interface ChatMessage {
   id: number;
-  from: 'user' | 'wingman' | 'claude';
+  from: string;
   text: string;
   timestamp: number;
   image?: string;  // relative filename in ~/.tandem/chat-images/
+  actorLabel?: string;
+  agentType?: string;
+  clear?: boolean;
 }
 
 export interface AddChatMessageOptions {
   notifyWebhook?: boolean;
   emitIpc?: boolean;
+  actorLabel?: string;
+  agentType?: string;
 }
 
 // ─── Manager ────────────────────────────────────────────────────────
@@ -114,7 +119,7 @@ export class PanelManager {
 
   /** Add a chat message */
   addChatMessage(
-    from: 'user' | 'wingman' | 'claude',
+    from: string,
     text: string,
     image?: string,
     opts: AddChatMessageOptions = {},
@@ -125,6 +130,8 @@ export class PanelManager {
       text,
       timestamp: Date.now(),
       image,
+      actorLabel: opts.actorLabel,
+      agentType: opts.agentType,
     };
     this.chatMessages.push(msg);
     this.saveChatHistory();
@@ -154,6 +161,22 @@ export class PanelManager {
   /** Get messages since a given ID (for polling) */
   getChatMessagesSince(sinceId: number): ChatMessage[] {
     return this.chatMessages.filter(m => m.id > sinceId);
+  }
+
+  /** Clear local chat history and notify the renderer to reload an empty view. */
+  clearChatMessages(): void {
+    this.chatMessages = [];
+    this.chatCounter = 0;
+    this.saveChatHistory();
+    if (this.win && !this.win.isDestroyed() && !this.win.webContents.isDestroyed()) {
+      this.win.webContents.send(IpcChannels.CHAT_MESSAGE, {
+        id: 0,
+        from: 'system',
+        text: '',
+        timestamp: Date.now(),
+        clear: true,
+      });
+    }
   }
 
   /** Set Wingman typing indicator */
@@ -282,6 +305,9 @@ export class PanelManager {
 
   private getReplySenderLabel(from: ChatMessage['from']): string {
     if (from === 'claude') return 'Claude';
+    if (from === 'codex') return 'Codex';
+    if (from === 'openclaw') return 'OpenClaw';
+    if (from && from !== 'wingman') return from;
     return 'Wingman';
   }
 

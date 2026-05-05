@@ -29,7 +29,7 @@ export interface TandemConfig {
     wingmanPanelPosition: 'left' | 'right';
     wingmanPanelDefaultOpen: boolean;
     showBookmarksBar: boolean;
-    activeBackend: 'openclaw' | 'claude';
+    activeBackend: 'tandem' | 'openclaw' | 'claude' | 'both';
     agentName: string;
     agentDisplayName: string;
     quickLinks: QuickLinkConfig[];
@@ -132,7 +132,7 @@ const DEFAULT_CONFIG: TandemConfig = {
     wingmanPanelPosition: 'right',
     wingmanPanelDefaultOpen: false,
     showBookmarksBar: true,
-    activeBackend: 'openclaw',
+    activeBackend: 'tandem',
     agentName: 'Wingman',
     agentDisplayName: 'AI Wingman',
     quickLinks: DEFAULT_QUICK_LINKS,

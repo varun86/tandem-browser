@@ -3,6 +3,11 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { apiCall, getMcpSource, logActivity } from '../api-client.js';
 import { coerceShape } from '../coerce.js';
 
+function buildAgentChatBody(text: string): { text: string; from?: string } {
+  const source = getMcpSource();
+  return source === 'wingman' ? { text } : { text, from: source };
+}
+
 export function registerChatTools(server: McpServer): void {
   server.tool(
     'tandem_send_message',
@@ -11,8 +16,20 @@ export function registerChatTools(server: McpServer): void {
       text: z.string().describe('Message text to display'),
     },
     async ({ text }) => {
-      await apiCall('POST', '/chat', { text, from: getMcpSource() });
+      await apiCall('POST', '/chat', buildAgentChatBody(text));
       return { content: [{ type: 'text', text: `Message sent: "${text.substring(0, 100)}"` }] };
+    }
+  );
+
+  server.tool(
+    'tandem_chat_reply',
+    'Reply into the Wingman chat panel as the connected agent through Tandem local chat',
+    {
+      text: z.string().describe('Reply text to display in the Wingman chat'),
+    },
+    async ({ text }) => {
+      await apiCall('POST', '/chat/messages', buildAgentChatBody(text));
+      return { content: [{ type: 'text', text: `Reply sent: "${text.substring(0, 100)}"` }] };
     }
   );
 
@@ -33,6 +50,57 @@ export function registerChatTools(server: McpServer): void {
       }
 
       return { content: [{ type: 'text', text }] };
+    }
+  );
+
+  server.tool(
+    'tandem_chat_wait_for_message',
+    'Wait for new Wingman chat messages after a known message id',
+    coerceShape({
+      sinceId: z.number().optional().default(0).describe('Only return messages with id greater than this value'),
+      timeoutMs: z.number().optional().default(30000).describe('Maximum wait in milliseconds, capped by Tandem'),
+    }),
+    async ({ sinceId, timeoutMs }) => {
+      const data = await apiCall('GET', `/chat/wait?since_id=${sinceId}&timeout_ms=${timeoutMs}`);
+      const messages: Array<{ id: number; from: string; text: string; timestamp: number }> = data.messages || [];
+
+      if (messages.length === 0) {
+        return { content: [{ type: 'text', text: data.timedOut ? 'No new chat messages before timeout.' : 'No new chat messages.' }] };
+      }
+
+      let text = `New chat messages (${messages.length}):\n\n`;
+      for (const msg of messages) {
+        const time = new Date(msg.timestamp).toLocaleTimeString();
+        text += `#${msg.id} [${time}] ${msg.from}: ${msg.text}\n`;
+      }
+
+      return { content: [{ type: 'text', text }] };
+    }
+  );
+
+  server.tool(
+    'tandem_chat_set_typing',
+    'Set the Wingman typing indicator in the chat panel',
+    {
+      typing: z.boolean().describe('Whether the Wingman typing indicator should be shown'),
+    },
+    async ({ typing }) => {
+      await apiCall('POST', '/chat/typing', { typing });
+      return { content: [{ type: 'text', text: `Typing indicator ${typing ? 'enabled' : 'disabled'}.` }] };
+    }
+  );
+
+  server.tool(
+    'tandem_chat_status',
+    'Get Tandem local chat bus status for MCP/API Wingman chat',
+    async () => {
+      const data = await apiCall('GET', '/chat/status');
+      return {
+        content: [{
+          type: 'text',
+          text: `Tandem chat status: ${data.available ? 'available' : 'unavailable'} (backend: ${data.backend || 'unknown'}, lastMessageId: ${data.lastMessageId ?? 0})`,
+        }],
+      };
     }
   );
 
