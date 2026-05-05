@@ -937,6 +937,7 @@ async function startAPI(win: BrowserWindow): Promise<void> {
 
 
 void app.whenReady().then(async () => {
+  const platform = selectPlatform();
   const win = await createWindow();
   await startAPI(win);
   buildAppMenu({
@@ -948,6 +949,7 @@ void app.whenReady().then(async () => {
     pipManager: runtime?.pipManager ?? null,
     configManager: runtime?.configManager ?? null,
     videoRecorderManager: runtime?.videoRecorderManager ?? null,
+    updater: platform.updater,
   });
 
   // Keep shortcuts always registered while app is running
@@ -967,6 +969,7 @@ void app.whenReady().then(async () => {
           pipManager: runtime?.pipManager ?? null,
           configManager: runtime?.configManager ?? null,
           videoRecorderManager: runtime?.videoRecorderManager ?? null,
+          updater: platform.updater,
         });
       }).catch((err) => {
         log.error('Failed to recreate window:', err);
