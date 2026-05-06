@@ -5,6 +5,27 @@
 
   let cachedToken = window.__TANDEM_TOKEN__ || '';
   let tokenPromise = null;
+  let cachedApiBaseUrl = window.__TANDEM_API_BASE__ || window.__tandemApiBaseFromLocation?.() || 'http://127.0.0.1:8765';
+
+  function normalizeApiBaseUrl(value) {
+    if (typeof value !== 'string' || !value.trim()) {
+      return 'http://127.0.0.1:8765';
+    }
+    return value.trim().replace(/\/+$/, '');
+  }
+
+  function getApiBaseUrl() {
+    return normalizeApiBaseUrl(cachedApiBaseUrl);
+  }
+
+  function apiUrl(path) {
+    return `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  }
+
+  window.tandemApi = {
+    baseUrl: getApiBaseUrl,
+    url: apiUrl,
+  };
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -47,6 +68,29 @@
     return tokenPromise;
   }
 
+  function rewriteLegacyApiUrl(input) {
+    const rawUrl = typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input?.url;
+
+    if (!rawUrl) {
+      return input;
+    }
+
+    try {
+      const url = new URL(rawUrl, window.location.href);
+      if ((url.hostname === 'localhost' || url.hostname === '127.0.0.1') && url.port === '8765') {
+        const rewritten = `${getApiBaseUrl()}${url.pathname}${url.search}${url.hash}`;
+        return input instanceof Request ? new Request(rewritten, input) : rewritten;
+      }
+    } catch {
+      return input;
+    }
+    return input;
+  }
+
   function isLocalTandemApiUrl(input) {
     const rawUrl = typeof input === 'string'
       ? input
@@ -60,7 +104,8 @@
 
     try {
       const url = new URL(rawUrl, window.location.href);
-      return (url.hostname === 'localhost' || url.hostname === '127.0.0.1') && url.port === '8765';
+      const apiUrl = new URL(getApiBaseUrl());
+      return (url.hostname === apiUrl.hostname || url.hostname === 'localhost') && url.port === apiUrl.port;
     } catch {
       return false;
     }
@@ -68,6 +113,7 @@
 
   const originalFetch = window.fetch.bind(window);
   window.fetch = async (input, init) => {
+    input = rewriteLegacyApiUrl(input);
     if (!isLocalTandemApiUrl(input)) {
       return originalFetch(input, init);
     }

@@ -9,6 +9,7 @@ import { handleRouteError } from '../../utils/errors';
 import { createLogger } from '../../utils/logger';
 import { buildOpenClawConnectParams, readOpenClawGatewayToken } from '../../openclaw/connect';
 import { createRateLimitMiddleware } from '../rate-limit';
+import { ConfigValidationError } from '../../config/api-endpoints';
 
 const log = createLogger('DataRoutes');
 const openClawTokenRateLimit = expressRateLimit({
@@ -200,6 +201,10 @@ export function registerDataRoutes(router: Router, ctx: RouteContext): void {
       const updated = ctx.configManager.updateConfig(req.body);
       res.json(updated);
     } catch (e) {
+      if (e instanceof ConfigValidationError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
       handleRouteError(res, e);
     }
   });

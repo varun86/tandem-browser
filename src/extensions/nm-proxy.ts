@@ -29,6 +29,8 @@ import path from 'path';
 import os from 'os';
 import type { ExtensionRouteAccessDecision } from './manager';
 import { createLogger } from '../utils/logger';
+import { API_PORT } from '../utils/constants';
+import { parseApiPort } from '../config/api-endpoints';
 import { tandemDir } from '../utils/paths';
 import { assertNativeMessagingHostName, assertPathWithinRoot, resolvePathWithinRoot } from '../utils/security';
 
@@ -265,6 +267,12 @@ function handlePersistentConnection(
 // ─── Public class ─────────────────────────────────────────────────────────────
 
 export class NativeMessagingProxy {
+  private apiPort = API_PORT;
+
+  setApiPort(apiPort: number): void {
+    this.apiPort = parseApiPort(apiPort);
+  }
+
   /**
    * Register POST /extensions/native-message on the Express router.
    * Must be called after body-parser middleware is in place. TandemAPI applies
@@ -380,7 +388,7 @@ export class NativeMessagingProxy {
       handlePersistentConnection(ws, hostInfo.binary, host, actorLabel);
     });
 
-    log.info('🔌 NM proxy: WebSocket server ready at ws://127.0.0.1:8765/extensions/native-message/ws');
+    log.info(`NM proxy: WebSocket server ready at ws://127.0.0.1:${this.apiPort}/extensions/native-message/ws`);
   }
 
   /**
@@ -405,7 +413,7 @@ export class NativeMessagingProxy {
       let changed = false;
 
       const addToCSP = (csp: string): string => {
-        const additions = ['http://127.0.0.1:8765', 'ws://127.0.0.1:8765'];
+        const additions = [`http://127.0.0.1:${this.apiPort}`, `ws://127.0.0.1:${this.apiPort}`];
         for (const url of additions) {
           if (csp.includes(url)) continue;
           // Inject into connect-src directive

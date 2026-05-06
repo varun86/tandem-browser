@@ -10,7 +10,7 @@ bicycle: two riders, one machine, each contributing what the other can't do
 alone.
 
 The browser runs two things in parallel. The human uses it like any other browser
-while AI agents operate through a built-in **MCP server** (253 tools) or a
+while AI agents operate through a built-in **MCP server** (257 tools) or a
 **300+ endpoint HTTP API** for navigation, interaction, data extraction,
 automation, sessions, sync, extensions, and developer tooling. Local agents can
 use MCP or HTTP. Remote agents on the same Tailscale network connect via HTTP
@@ -31,7 +31,7 @@ The security layer exists because when an AI has access to your browser, your th
 Data stays local. Sessions are isolated. Nothing leaves the machine through Tandem Browser without going through a filter first.
 
 **GitHub:** `hydro13/tandem-browser`  
-**Current version:** `1.10.0`
+**Current version:** `1.11.0`
 **Repository status:** Public developer preview  
 **Started:** February 11, 2026
 
@@ -107,7 +107,7 @@ Within the product UI, the right-side assistant surface is called the Wingman pa
 │                      │                                          │
 │                      ▼                                          │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │  Tandem HTTP API — localhost:8765 (Express)                │ │
+│  │  Tandem HTTP API — configured port, default 8765 (Express) │ │
 │  │  300+ route handlers across 16 route modules               │ │
 │  │                                                            │ │
 │  │  Navigation, Content, Interaction, Tabs, Screenshots       │ │
@@ -291,7 +291,8 @@ npm run compile
 npm start
 
 # API
-curl http://127.0.0.1:8765/status
+API_PORT="$(cat ~/.tandem/api-port 2>/dev/null || printf 8765)"
+curl "http://127.0.0.1:${API_PORT}/status"
 ```
 
 **macOS note:** `npm start` already clears Electron quarantine flags before launch. If Electron is re-downloaded or started outside the provided scripts, run `xattr -cr node_modules/electron/dist/Electron.app` first or macOS may terminate the process silently.

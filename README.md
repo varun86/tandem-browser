@@ -101,7 +101,7 @@ Want the fastest path in?
 | **System** | 6 | Browser status, headless mode, Google Photos, security overrides |
 | **Awareness** | 2 | Activity digest, real-time focus detection — the AI knows what you're doing |
 
-**253 tools total** — full parity with the HTTP API.
+**257 tools total** — full parity with the HTTP API.
 
 ## Why Not Just Use Playwright?
 
@@ -158,7 +158,7 @@ That's it. Tandem publishes its own bootstrap surface — the agent reads `/agen
 
 **Windows 11 x64** — download the installer or portable build:
 
-**[Download Tandem Browser v1.10.0 →](https://github.com/hydro13/tandem-browser/releases/tag/v1.10.0)**
+**[Download Tandem Browser v1.11.0 →](https://github.com/hydro13/tandem-browser/releases/tag/v1.11.0)**
 
 Windows builds are official Tandem Browser downloads, but they are currently
 unsigned. Windows may show an unknown publisher or SmartScreen warning during
@@ -181,7 +181,7 @@ macOS and Windows are supported platforms. Linux is best-effort.
 
 Depending on what you want to do:
 
-- **Install Tandem** -> download [macOS v1.0.0](https://github.com/hydro13/tandem-browser/releases/tag/v1.0.0) or [Windows v1.10.0](https://github.com/hydro13/tandem-browser/releases/tag/v1.10.0), or follow Quick Start above
+- **Install Tandem** -> download [macOS v1.0.0](https://github.com/hydro13/tandem-browser/releases/tag/v1.0.0) or [Windows v1.11.0](https://github.com/hydro13/tandem-browser/releases/tag/v1.11.0), or follow Quick Start above
 - **Connect an agent** -> see [Connect Your AI Agent](#connect-your-ai-agent)
 - **Explore the API and docs** -> browse [docs/](docs/) and [docs/INDEX.md](docs/INDEX.md)
 - **See the product story and website** -> visit [tandembrowser.org](https://tandembrowser.org)
@@ -208,6 +208,14 @@ The primary onboarding flow is now inside Tandem itself:
 Tandem handles the setup-code flow and publishes its own bootstrap/discovery
 surface for the agent at `/agent`, `/agent/manifest`, `/agent/version`, and
 `/skill`.
+New paired agents must read `/skill`, `/agent/manifest`, and
+`/agent/bootstrap` with their binding token before normal API/MCP use; Tandem
+returns `428 agent_startup_required` when that startup sequence is skipped.
+
+The Agent API port defaults to `8765` and can be changed in **Settings ->
+Connected Agents -> Agent API settings**. Local clients should discover the
+current port from `~/.tandem/api-port` or `~/.tandem/api-endpoints.json`.
+`~/.tandem/api-token` remains the readable local token compatibility contract.
 
 ### On the same machine (MCP or HTTP)
 
@@ -231,15 +239,17 @@ Cursor, Windsurf, or any MCP client):
 }
 ```
 
-Start Tandem, and 253 tools are available immediately.
+Start Tandem, and 257 tools are available immediately.
 
 **HTTP API** — Use the local API token directly:
 
 ```bash
+API_PORT="$(cat ~/.tandem/api-port 2>/dev/null || printf 8765)"
+API="http://127.0.0.1:${API_PORT}"
 TOKEN="$(cat ~/.tandem/api-token)"
 
-curl -sS http://127.0.0.1:8765/status
-curl -sS http://127.0.0.1:8765/tabs/list \
+curl -sS "$API/status"
+curl -sS "$API/tabs/list" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -266,7 +276,7 @@ Connected Agents UI.
   "mcpServers": {
     "tandem": {
       "type": "streamable-http",
-      "url": "http://<tandem-tailscale-ip>:8765/mcp",
+      "url": "http://<tandem-tailscale-ip>:<configured-port>/mcp",
       "headers": {
         "Authorization": "Bearer <your-binding-token>"
       }
@@ -277,19 +287,19 @@ Connected Agents UI.
 
 **HTTP API** works the same way as local, using the binding token as Bearer auth.
 
-Both transports give remote agents the same 253 tools and 300+ endpoints as local agents.
+Both transports give remote agents the same 257 tools and 300+ endpoints as local agents.
 
 <details>
 <summary>Manual pairing (for scripts or custom tooling)</summary>
 
 ```bash
 # Exchange setup code for token
-curl -X POST http://<tandem-tailscale-ip>:8765/pairing/exchange \
+curl -X POST http://<tandem-tailscale-ip>:<configured-port>/pairing/exchange \
   -H "Content-Type: application/json" \
   -d '{"code":"TDM-XXXX-XXXX","machineId":"...","machineName":"...","agentLabel":"...","agentType":"..."}'
 
 # Use the returned token
-curl -sS http://<tandem-tailscale-ip>:8765/status \
+curl -sS http://<tandem-tailscale-ip>:<configured-port>/status \
   -H "Authorization: Bearer <token>"
 ```
 
@@ -304,7 +314,8 @@ A running Tandem instance publishes its own version-matched discovery surface:
 - `GET /skill` — version-matched usage guide
 
 These are public (no auth required) and use the request `Host` header, so they
-return correct URLs whether accessed locally or over Tailscale.
+return correct URLs whether accessed locally or over Tailscale on the
+configured port.
 
 ## Security Model
 
@@ -367,7 +378,7 @@ contributors, not yet a polished mass-user release.
 - Supported platform: Windows 11 x64
 - Secondary platform: Linux
 - Binaries: signed and notarized macOS Apple Silicon builds plus unsigned Windows x64 installer/portable builds on [GitHub Releases](https://github.com/hydro13/tandem-browser/releases), starting with Windows in v1.10.0
-- Current version: `1.10.0`
+- Current version: `1.11.0`
 - Package metadata: [package.json](package.json)
 
 ## Community

@@ -137,7 +137,7 @@
 
     function openSettings() {
       const shellPath = window.location.href.replace(/\/[^/]*$/, '');
-      const settingsUrl = shellPath + '/settings.html';
+      const settingsUrl = window.__tandemInternalUrl ? window.__tandemInternalUrl(shellPath + '/settings.html') : shellPath + '/settings.html';
       const entry = getActiveEntry();
       if (entry) {
         entry.webview.loadURL(settingsUrl);
@@ -714,7 +714,7 @@
 
     function openHistoryPage() {
       const shellPath = window.location.href.replace(/\/[^/]*$/, '');
-      const historyUrl = shellPath + '/history.html';
+      const historyUrl = window.__tandemInternalUrl ? window.__tandemInternalUrl(shellPath + '/history.html') : shellPath + '/history.html';
       const entry = getActiveEntry();
       if (entry) entry.webview.loadURL(historyUrl);
     }

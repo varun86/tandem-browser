@@ -36,6 +36,7 @@
 | Capability | macOS | Windows | Linux | Notes |
 |------------|-------|---------|-------|-------|
 | App startup (`npm start` from source) | supported | supported | partial | Windows startup is covered by required verify and smoke checks. |
+| Configurable Agent API port | supported | supported | supported | The default remains `8765`; local clients discover the configured port through Tandem bootstrap files, and remote agents use the Tailscale/private-network address plus the configured port. |
 | Signed installer | supported | unsupported | unsupported | Windows installer and portable builds are official but unsigned; code signing is planned. |
 | Auto-update | supported | partial | unsupported | Windows has a manual `electron-updater` check path and generated `latest.yml` metadata, but automatic update installation remains blocked until end-to-end update validation is complete. |
 | Custom titlebar / window chrome | supported | supported | supported | Windows source and packaged runs use frameless shell-owned controls. |

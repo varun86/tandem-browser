@@ -410,6 +410,20 @@ describe('Data Routes', () => {
       expect(res.body).toEqual(updatedConfig);
       expect(ctx.configManager.updateConfig).toHaveBeenCalledWith({ theme: 'light' });
     });
+
+    it('returns 400 for invalid config values', async () => {
+      const { ConfigValidationError } = await import('../../../config/api-endpoints');
+      vi.mocked(ctx.configManager.updateConfig).mockImplementation(() => {
+        throw new ConfigValidationError('Agent API port must be between 1 and 65535.');
+      });
+
+      const res = await request(app)
+        .patch('/config')
+        .send({ general: { apiPort: 65536 } });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('Agent API port');
+    });
   });
 
   describe('GET /config/openclaw-token', () => {

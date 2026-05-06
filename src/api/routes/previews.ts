@@ -21,6 +21,7 @@ import { handleRouteError } from '../../utils/errors';
 import { assertSinglePathSegment, escapeHtml, resolvePathWithinRoot } from '../../utils/security';
 import type { RouteContext } from '../context';
 import { createLogger } from '../../utils/logger';
+import { API_PORT } from '../../utils/constants';
 
 const log = createLogger('PreviewRoutes');
 
@@ -132,8 +133,9 @@ function injectLiveReload(html: string, id: string, version: number): string {
  * @param ctx - shared manager registry and main BrowserWindow
  */
 /** Derive base URL from the incoming request's Host header. */
-function getBaseUrl(req: Request): string {
-  const host = req.headers.host ?? 'localhost:8765';
+function getBaseUrl(req: Request, ctx: RouteContext): string {
+  const apiPort = ctx.configManager.getConfig().general?.apiPort ?? API_PORT;
+  const host = req.headers.host ?? `127.0.0.1:${apiPort}`;
   return `http://${host}`;
 }
 
@@ -180,7 +182,7 @@ export function registerPreviewRoutes(router: Router, ctx: RouteContext): void {
       writePreview(preview);
       log.info(`Preview created: ${id}`);
 
-      const url = `${getBaseUrl(req)}/preview/${id}`;
+      const url = `${getBaseUrl(req, ctx)}/preview/${id}`;
 
       // Open in a new tab by default (openTab defaults to true)
       if (openTab !== false) {
@@ -226,7 +228,7 @@ export function registerPreviewRoutes(router: Router, ctx: RouteContext): void {
       writePreview(updated);
       log.info(`Preview updated: ${id} (v${updated.version})`);
 
-      res.json({ ok: true, id, version: updated.version, url: `${getBaseUrl(req)}/preview/${id}` });
+      res.json({ ok: true, id, version: updated.version, url: `${getBaseUrl(req, ctx)}/preview/${id}` });
     } catch (e) {
       handleRouteError(res, e);
     }

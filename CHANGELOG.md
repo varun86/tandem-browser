@@ -12,6 +12,11 @@ All notable changes to Tandem Browser will be documented in this file.
   messages and reply into the panel without requiring OpenClaw on the host.
   OpenClaw remains available as a separate backend and the shell falls back to
   Tandem local chat when the gateway is not reachable.
+- **Agent bootstrap contract** (`src/api/routes/bootstrap.ts`,
+  `src/api/agent-bootstrap.ts`) - adds authenticated `GET /agent/bootstrap`
+  with runtime workspace/tab context, a required startup sequence, operating
+  rules, toolbox guidance, and tool-selection hints so newly connected agents
+  understand how to use Tandem as a full browser layer.
 
 ### Changed
 
@@ -20,6 +25,64 @@ All notable changes to Tandem Browser will be documented in this file.
   agents configured in Connected Agents, so a lone Codex binding no longer
   exposes stale OpenClaw/Claude tabs or lets the legacy Claude polling backend
   mirror the Codex conversation.
+- **Pairing response** (`src/api/routes/pairing.ts`) - now returns bootstrap
+  next-read links, docs URLs, and snapshot-first workflow guidance alongside
+  the durable binding token without changing the existing token contract.
+- **Paired-agent startup enforcement** (`src/api/server.ts`,
+  `src/pairing/manager.ts`) - new binding tokens must read `/skill`,
+  `/agent/manifest`, and `/agent/bootstrap` with the token before normal
+  API/MCP routes are unlocked; skipped startup now returns
+  `428 agent_startup_required` instead of silently letting the agent continue
+  uninformed. Legacy local `api-token` clients remain ungated.
+- **Agent discovery docs** (`/agent`, `/skill`, `/agent/manifest`,
+  `skill/SKILL.md`) - now explicitly tell agents to read `/skill`,
+  `/agent/manifest`, `/agent/bootstrap`, `/status`, and `/workspaces` after
+  connecting instead of stopping at successful authentication.
+
+## [v1.11.0] - 2026-05-05
+
+Configurable Agent API port release. Tandem now lets users change the Agent API
+port from the default `8765` while preserving local MCP/HTTP clients and remote
+Tailscale agent connectivity.
+
+### Added
+
+- **Agent API port setting** (`src/config/manager.ts`, `shell/settings.html`) -
+  stores `general.apiPort`, validates TCP port values, and shows local plus
+  remote endpoint previews in Settings > Connected Agents.
+- **Endpoint bootstrap artifacts** (`~/.tandem/api-port`,
+  `~/.tandem/api-endpoints.json`) - publish the configured local loopback URL
+  and Tailscale/private-network metadata without replacing the readable
+  `api-token` compatibility contract.
+- **Port helper tests** (`src/config/tests/api-endpoints.test.ts`,
+  `src/config/tests/config.test.ts`) - cover strict port validation, local
+  loopback URL construction, custom ports, and local-only remote warnings.
+
+### Changed
+
+- **API startup** (`src/main.ts`, `src/api/server.ts`, `scripts/start.js`) -
+  starts TandemAPI on the configured port, writes endpoint discovery metadata,
+  and reports configured-port conflicts without blindly terminating unrelated
+  processes.
+- **Local clients** (`src/mcp/api-client.ts`, `src/mcp/server.ts`,
+  `src/agents/x-scout.ts`, `cli/client.ts`) - discover the configured port and
+  connect through `http://127.0.0.1:<configured-port>`.
+- **Shell API helpers** (`src/preload/index.ts`, `shell/js/api-auth.js`,
+  shell settings and chat modules) - route internal calls through the configured
+  loopback endpoint while preserving compatibility with legacy default-port
+  fetches.
+- **Remote agent instructions** (`src/api/routes/pairing.ts`, docs) - advertise
+  `http://<tailscale-or-private-ip>:<configured-port>` only when remote listen
+  mode is enabled, and warn clearly for loopback-only mode.
+
+### Technical Details
+
+- `apiListenHost` remains separate from `apiPort`; supported remote mode still
+  binds to `0.0.0.0` for private overlay networks and is not documented as
+  public-WAN support.
+- Invalid ports such as empty strings, text, decimals, negatives, `0`, and
+  values above `65535` are rejected with a clear API/UI error.
+- No new dependency was added.
 
 ## [v1.10.0] - 2026-05-05
 

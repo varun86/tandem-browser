@@ -7,11 +7,16 @@
  */
 
 import type { Router, Request, Response } from 'express';
-import os from 'os';
 import type { RouteContext } from '../context';
 import { createRateLimitMiddleware } from '../rate-limit';
 import { handleRouteError } from '../../utils/errors';
 import { API_PORT } from '../../utils/constants';
+import { detectApiAddresses } from '../../config/api-endpoints';
+import {
+  AGENT_OPERATING_RULES,
+  AGENT_STARTUP_SEQUENCE,
+  withBaseUrl,
+} from '../agent-bootstrap';
 
 const exchangeRateLimit = createRateLimitMiddleware({
   bucket: 'pairing-exchange',
@@ -21,46 +26,30 @@ const exchangeRateLimit = createRateLimitMiddleware({
 });
 
 /** Detect the best connection addresses for local and Tailscale modes. */
-export function detectAddresses(): {
-  local: { address: string; hostname: string };
-  tailscale: { available: boolean; address: string | null; hostname: string | null };
-} {
-  const hostname = os.hostname();
-  const local = { address: `http://127.0.0.1:${API_PORT}`, hostname };
-
-  // Scan network interfaces for Tailscale (100.x.y.z CGNAT range)
-  const interfaces = os.networkInterfaces();
-  let tailscaleIp: string | null = null;
-
-  for (const [_name, addrs] of Object.entries(interfaces)) {
-    if (!addrs) continue;
-    for (const addr of addrs) {
-      if (addr.family === 'IPv4' && !addr.internal && addr.address.startsWith('100.')) {
-        tailscaleIp = addr.address;
-        break;
-      }
-    }
-    if (tailscaleIp) break;
-  }
-
-  return {
-    local,
-    tailscale: {
-      available: tailscaleIp !== null,
-      address: tailscaleIp ? `http://${tailscaleIp}:${API_PORT}` : null,
-      hostname: tailscaleIp ? `${hostname} (${tailscaleIp})` : null,
-    },
-  };
+export function detectAddresses(opts?: { apiPort?: number; apiListenHost?: string }) {
+  return detectApiAddresses({
+    apiPort: opts?.apiPort ?? API_PORT,
+    apiListenHost: opts?.apiListenHost ?? '0.0.0.0',
+  });
 }
 
 export function registerPairingRoutes(router: Router, ctx: RouteContext): void {
+  const getBaseUrl = (req: Request): string => {
+    const apiPort = ctx.configManager.getConfig().general?.apiPort ?? API_PORT;
+    const host = req.headers.host ?? `127.0.0.1:${apiPort}`;
+    return `http://${host}`;
+  };
 
   // ═══════════════════════════════════════════════
   // GET /pairing/addresses — detect local + Tailscale addresses
   // ═══════════════════════════════════════════════
 
   router.get('/pairing/addresses', (_req: Request, res: Response) => {
-    res.json(detectAddresses());
+    const config = ctx.configManager.getConfig();
+    res.json(detectAddresses({
+      apiPort: config.general?.apiPort ?? API_PORT,
+      apiListenHost: config.general?.apiListenHost ?? '0.0.0.0',
+    }));
   });
 
   // ═══════════════════════════════════════════════
@@ -151,6 +140,7 @@ export function registerPairingRoutes(router: Router, ctx: RouteContext): void {
       const transportModes: string[] = Array.isArray(transport)
         ? transport.filter((t: string) => t === 'http' || t === 'mcp')
         : ['http'];
+      const baseUrl = getBaseUrl(req);
 
       const response: Record<string, unknown> = {
         token: result.token,
@@ -160,6 +150,22 @@ export function registerPairingRoutes(router: Router, ctx: RouteContext): void {
           agentType: result.binding.agentType,
           bindingKind: result.binding.bindingKind,
           state: result.binding.state,
+        },
+        bootstrap: {
+          message: 'Connection succeeded. Read these resources with this Bearer token before using Tandem as a browser.',
+          enforcement: {
+            enabled: true,
+            behavior: 'Most authenticated API and MCP routes return HTTP 428 until /skill, /agent/manifest, and /agent/bootstrap have been read with this binding token.',
+          },
+          nextRequiredReads: withBaseUrl(baseUrl, AGENT_STARTUP_SEQUENCE),
+          recommendedWorkflow: 'snapshot-first explicit tab targeting',
+          operatingRules: AGENT_OPERATING_RULES,
+          docs: {
+            humanReadable: `${baseUrl}/agent`,
+            llmSkill: `${baseUrl}/skill`,
+            machineManifest: `${baseUrl}/agent/manifest`,
+            authenticatedBootstrap: `${baseUrl}/agent/bootstrap`,
+          },
         },
       };
 

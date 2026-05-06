@@ -231,7 +231,7 @@ export async function initializeRuntimeManagers(opts: InitializeRuntimeOptions):
   runtime.historyManager = new HistoryManager();
   runtime.downloadManager = new DownloadManager();
   runtime.videoRecorderManager = new VideoRecorderManager();
-  runtime.extensionManager = new ExtensionManager();
+  runtime.extensionManager = new ExtensionManager(runtime.configManager.getConfig().general.apiPort);
   runtime.extensionLoader = runtime.extensionManager.getLoader();
   runtime.extensionToolbar = new ExtensionToolbar(runtime.extensionManager);
   runtime.claroNoteManager = new ClaroNoteManager();

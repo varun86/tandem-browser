@@ -11,7 +11,7 @@
  * Ready signal: dispatches 'tandem:bookmarks-store-ready' on window when available.
  */
 
-const API = 'http://localhost:8765';
+const API = window.tandemApi?.baseUrl() || window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765';
 const token = () => window.__TANDEM_TOKEN__ || '';
 const authHeaders = () => ({
   'Content-Type': 'application/json',

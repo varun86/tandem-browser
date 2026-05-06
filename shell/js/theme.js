@@ -17,7 +17,7 @@
 
 const VALID_THEMES = new Set(['dark', 'light', 'system']);
 const INITIAL_ATTR = 'data-tandem-initial-theme';
-const CONFIG_URL = 'http://localhost:8765/config';
+const CONFIG_URL = `${window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765'}/config`;
 const BC_NAME = 'tandem-theme';
 
 // opts.scope: optional Element to receive the data-theme attribute instead of

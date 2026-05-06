@@ -11,8 +11,49 @@ const os = require('os');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const apiPort = '8765';
+const apiPort = String(readConfiguredApiPort());
 const skipCompile = process.argv.includes('--skip-compile');
+
+function tandemDataDir() {
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA && process.env.APPDATA.trim()
+      ? process.env.APPDATA
+      : path.join(os.homedir(), 'AppData', 'Roaming');
+    return path.join(appData, 'Tandem Browser');
+  }
+  return path.join(os.homedir(), '.tandem');
+}
+
+function parseApiPort(value) {
+  const raw = String(value ?? '').trim();
+  if (!/^\d+$/.test(raw)) return null;
+  const port = Number(raw);
+  return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : null;
+}
+
+function readConfiguredApiPort() {
+  const envPort = parseApiPort(process.env.TANDEM_API_PORT);
+  if (envPort) return envPort;
+
+  const portPath = path.join(tandemDataDir(), 'api-port');
+  try {
+    if (fs.existsSync(portPath)) {
+      const port = parseApiPort(fs.readFileSync(portPath, 'utf-8'));
+      if (port) return port;
+    }
+  } catch {}
+
+  const configPath = path.join(tandemDataDir(), 'config.json');
+  try {
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      const port = parseApiPort(cfg && cfg.general && cfg.general.apiPort);
+      if (port) return port;
+    }
+  } catch {}
+
+  return 8765;
+}
 
 function runXattrClear(electronApp) {
   return new Promise((resolve) => {
@@ -38,6 +79,14 @@ function runKillPids(pids) {
   });
 }
 
+function runPsLookup(pid) {
+  return new Promise((resolve) => {
+    execFile('ps', ['-p', String(pid), '-o', 'comm=', '-o', 'args='], { cwd: root }, (error, stdout, stderr) => {
+      resolve({ error, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
 function runNetstat() {
   return new Promise((resolve) => {
     execFile('netstat.exe', ['-ano'], { cwd: root }, (error, stdout, stderr) => {
@@ -49,6 +98,14 @@ function runNetstat() {
 function runTaskkill(pid) {
   return new Promise((resolve) => {
     execFile('taskkill.exe', ['/PID', pid, '/F'], { cwd: root }, (error, stdout, stderr) => {
+      resolve({ error, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+function runWindowsProcessLookup(pid) {
+  return new Promise((resolve) => {
+    execFile('wmic.exe', ['process', 'where', `ProcessId=${pid}`, 'get', 'Name,CommandLine', '/FORMAT:LIST'], { cwd: root }, (error, stdout, stderr) => {
       resolve({ error, stdout: stdout || '', stderr: stderr || '' });
     });
   });
@@ -106,8 +163,26 @@ async function killUnixPortProcess() {
 
   if (pids.length === 0) return;
 
-  await runKillPids(pids);
-  console.log(`[start] Killed leftover process(es) on port ${apiPort}: ${pids.join(', ')}`);
+  const safePids = [];
+  const unsafePids = [];
+  for (const pid of pids) {
+    const info = await runPsLookup(pid);
+    const text = info.stdout.toLowerCase();
+    if ((text.includes('electron') || text.includes('tandem')) && text.includes(root.toLowerCase())) {
+      safePids.push(pid);
+    } else {
+      unsafePids.push(pid);
+    }
+  }
+
+  if (unsafePids.length > 0) {
+    throw new Error(`Agent API port ${apiPort} is already in use by another process (${unsafePids.join(', ')}). Tandem will not kill it automatically; stop that process or choose another Agent API port in Settings.`);
+  }
+
+  if (safePids.length > 0) {
+    await runKillPids(safePids);
+    console.log(`[start] Killed leftover Tandem process(es) on port ${apiPort}: ${safePids.join(', ')}`);
+  }
 }
 
 function parseWindowsNetstatPids(output) {
@@ -134,10 +209,28 @@ async function killWindowsPortProcess() {
 
   if (pids.length === 0) return;
 
+  const safePids = [];
+  const unsafePids = [];
   for (const pid of pids) {
+    const info = await runWindowsProcessLookup(pid);
+    const text = info.stdout.toLowerCase();
+    if ((text.includes('electron.exe') || text.includes('tandem')) && text.includes(root.toLowerCase())) {
+      safePids.push(pid);
+    } else {
+      unsafePids.push(pid);
+    }
+  }
+
+  if (unsafePids.length > 0) {
+    throw new Error(`Agent API port ${apiPort} is already in use by another process (${unsafePids.join(', ')}). Tandem will not kill it automatically; stop that process or choose another Agent API port in Settings.`);
+  }
+
+  for (const pid of safePids) {
     await runTaskkill(pid);
   }
-  console.log(`[start] Killed leftover process(es) on port ${apiPort}: ${pids.join(', ')}`);
+  if (safePids.length > 0) {
+    console.log(`[start] Killed leftover Tandem process(es) on port ${apiPort}: ${safePids.join(', ')}`);
+  }
 }
 
 async function cleanupApiPort() {

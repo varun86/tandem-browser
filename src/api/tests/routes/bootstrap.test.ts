@@ -75,6 +75,31 @@ describe('Bootstrap Routes', () => {
     });
   });
 
+  describe('GET /agent/bootstrap', () => {
+    it('returns the authenticated startup contract and runtime context', async () => {
+      const res = await request(app).get('/agent/bootstrap');
+      expect(res.status).toBe(200);
+      expect(res.body.identity.name).toBe('tandem-browser');
+      expect(res.body.identity.version).toBe('0.73.0');
+      expect(res.body.primaryInteractionModel).toContain('snapshot');
+      expect(res.body.startupSequence.map((step: { endpoint: string }) => step.endpoint)).toContain('/skill');
+      expect(res.body.startupSequence.map((step: { endpoint: string }) => step.endpoint)).toContain('/agent/bootstrap');
+      expect(res.body.toolbox.inspect).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: '/snapshot?compact=true' }),
+        ]),
+      );
+      expect(res.body.runtime.activeTab.id).toBe('tab-1');
+      expect(res.body.runtime.activeWorkspaceId).toBe('ws-default');
+    });
+
+    it('uses Host header for bootstrap URLs', async () => {
+      const res = await request(app).get('/agent/bootstrap').set('Host', '100.64.0.1:8765');
+      expect(res.body.identity.baseUrl).toBe('http://100.64.0.1:8765');
+      expect(res.body.docs.authenticatedBootstrap).toBe('http://100.64.0.1:8765/agent/bootstrap');
+    });
+  });
+
   describe('GET /agent/manifest', () => {
     it('returns full manifest', async () => {
       const res = await request(app).get('/agent/manifest');
@@ -115,8 +140,17 @@ describe('Bootstrap Routes', () => {
 
     it('includes skill endpoint in bootstrap section', async () => {
       const res = await request(app).get('/agent/manifest');
+      expect(res.body.endpoints.bootstrap.bootstrap).toBeDefined();
+      expect(res.body.endpoints.bootstrap.bootstrap.path).toBe('/agent/bootstrap');
       expect(res.body.endpoints.bootstrap.skill).toBeDefined();
       expect(res.body.endpoints.bootstrap.skill.path).toBe('/skill');
+    });
+
+    it('includes startup sequence and tool-selection hints', async () => {
+      const res = await request(app).get('/agent/manifest');
+      expect(res.body.startupSequence.map((step: { endpoint: string }) => step.endpoint)).toContain('/agent/bootstrap');
+      expect(res.body.primaryInteractionModel).toContain('snapshot');
+      expect(res.body.toolSelectionHints['/snapshot/click'].preferredOver).toContain('/execute-js');
     });
 
     it('includes MCP connection details in manifest', async () => {
@@ -142,6 +176,8 @@ describe('Bootstrap Routes', () => {
       expect(res.headers['content-type']).toContain('text/markdown');
       expect(res.text).toContain('Tandem Browser Skill');
       expect(res.text).toContain('snapshot');
+      expect(res.text).toContain('Required startup sequence');
+      expect(res.text).toContain('/agent/bootstrap');
     });
 
     it('describes both local and remote MCP access', async () => {

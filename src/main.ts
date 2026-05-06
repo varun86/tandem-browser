@@ -35,7 +35,7 @@ import { StealthManager } from './stealth/manager';
 import { buildAppMenu } from './menu/app-menu';
 import { RequestDispatcher } from './network/dispatcher';
 import { setMainWindow } from './notifications/alert';
-import { API_PORT, WEBHOOK_PORT, DEFAULT_PARTITION, COOKIE_FLUSH_INTERVAL_MS } from './utils/constants';
+import { WEBHOOK_PORT, DEFAULT_PARTITION, COOKIE_FLUSH_INTERVAL_MS } from './utils/constants';
 import { tandemDir } from './utils/paths';
 import { createLogger } from './utils/logger';
 import { createManagerRegistry, destroyRuntime, initializeRuntimeManagers, registerRuntimeIpcHandlers } from './bootstrap/runtime';
@@ -43,7 +43,8 @@ import { registerInitialTabLifecycle } from './bootstrap/tab-session';
 import { IpcChannels } from './shared/ipc-channels';
 import type { PendingTabRegister, RuntimeManagers } from './bootstrap/types';
 import { isGoogleAuthUrl, shouldSkipStealth, pathnameMatchesPrefix, tryParseUrl, urlHasProtocol, hostnameMatches } from './utils/security';
-import { readConfigFileSync } from './config/io';
+import { readConfigFileSync, readConfiguredApiPortSync } from './config/io';
+import { buildApiPortArg, buildLocalApiBaseUrl } from './config/api-endpoints';
 import { resolveInitialTheme, buildThemeAdditionalArg, toNativeThemeSource, type ResolvedTheme } from './theme/resolver';
 import { selectPlatform } from './platform';
 import { CloudflarePolicyManager } from './cloudflare/policy-manager';
@@ -70,6 +71,7 @@ let api: TandemAPI | null = null;
 let runtime: RuntimeManagers | null = null;
 let dispatcher: RequestDispatcher | null = null;
 let cloudflarePolicyManager: CloudflarePolicyManager | null = null;
+let currentApiPort = readConfiguredApiPortSync();
 const earlyOopifStealthRegistered = new Set<number>();
 const cloudflareNoTouchPartitions = new Set<string>();
 const cloudflareNoTouchReroutes = new Set<number>();
@@ -81,12 +83,18 @@ let pendingTabRegister: PendingTabRegister | null = null;
 
 function registerEarlyShellAuthIpc(): void {
   try { ipcMain.removeHandler(IpcChannels.GET_API_TOKEN); } catch { /* handler may not exist yet */ }
+  try { ipcMain.removeHandler(IpcChannels.GET_API_BASE_URL); } catch { /* handler may not exist yet */ }
+  ipcMain.removeAllListeners(IpcChannels.GET_API_BASE_URL_SYNC);
   ipcMain.handle(IpcChannels.GET_API_TOKEN, async () => {
     try {
       return fs.readFileSync(tandemDir('api-token'), 'utf-8').trim();
     } catch {
       return '';
     }
+  });
+  ipcMain.handle(IpcChannels.GET_API_BASE_URL, async () => buildLocalApiBaseUrl(currentApiPort));
+  ipcMain.on(IpcChannels.GET_API_BASE_URL_SYNC, (event) => {
+    event.returnValue = buildLocalApiBaseUrl(currentApiPort);
   });
 }
 
@@ -127,7 +135,7 @@ function isLocalTandemApiUrl(rawUrl: string): boolean {
   return (
     urlHasProtocol(url, 'http:') &&
     (url.hostname === 'localhost' || url.hostname === '127.0.0.1') &&
-    url.port === String(API_PORT)
+    url.port === String(currentApiPort)
   );
 }
 
@@ -809,6 +817,7 @@ async function createWindow(): Promise<BrowserWindow> {
   // Pre-paint theme resolution — eliminates dark→light flash.
   // We read the file directly because ConfigManager is not yet initialized.
   let initialTheme: ResolvedTheme = 'dark';
+  currentApiPort = readConfiguredApiPortSync();
   try {
     const cfg = readConfigFileSync();
     const setting = cfg?.appearance?.theme ?? 'dark';
@@ -831,7 +840,7 @@ async function createWindow(): Promise<BrowserWindow> {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      additionalArguments: [buildThemeAdditionalArg(initialTheme)],
+      additionalArguments: [buildThemeAdditionalArg(initialTheme), buildApiPortArg(currentApiPort)],
     },
   });
   setMainWindow(mainWindow);
@@ -877,9 +886,10 @@ async function startAPI(win: BrowserWindow): Promise<void> {
   });
 
   const registry = createManagerRegistry(runtime);
-  api = new TandemAPI({ win, port: API_PORT, registry });
+  currentApiPort = runtime.configManager.getConfig().general.apiPort;
+  api = new TandemAPI({ win, port: currentApiPort, registry });
   await api.start();
-  log.info(`🧠 Tandem API running on http://localhost:${API_PORT}`);
+  log.info(`Tandem API running on ${buildLocalApiBaseUrl(currentApiPort)}`);
 
   // Security: Monitor openclaw.json for unauthorized modifications (prompt injection defense)
   const { startConfigIntegrityMonitor } = await import('./openclaw/connect');

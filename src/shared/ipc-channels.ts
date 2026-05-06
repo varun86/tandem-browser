@@ -6,6 +6,8 @@
 export const IpcChannels = {
   // Auth / API
   GET_API_TOKEN: 'get-api-token',
+  GET_API_BASE_URL: 'get-api-base-url',
+  GET_API_BASE_URL_SYNC: 'get-api-base-url-sync',
 
   // Navigation
   NAVIGATE: 'navigate',

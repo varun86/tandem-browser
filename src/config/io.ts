@@ -5,6 +5,8 @@
 
 import fs from 'fs';
 import path from 'path';
+import { normalizeApiPort } from './api-endpoints';
+import { API_PORT } from '../utils/constants';
 import { tandemDir } from '../utils/paths';
 
 /**
@@ -12,6 +14,9 @@ import { tandemDir } from '../utils/paths';
  * larger (see `src/config/manager.ts`); we only type the fields we read here.
  */
 export interface PreStartupConfig {
+  general?: {
+    apiPort?: unknown;
+  };
   appearance?: {
     theme?: 'dark' | 'light' | 'system';
   };
@@ -32,4 +37,14 @@ export function readConfigFileSync(): PreStartupConfig | null {
   } catch {
     return null;
   }
+}
+
+export function readConfiguredApiPortSync(): number {
+  const envPort = process.env.TANDEM_API_PORT;
+  if (envPort !== undefined) {
+    return normalizeApiPort(envPort);
+  }
+
+  const config = readConfigFileSync();
+  return normalizeApiPort(config?.general?.apiPort, API_PORT);
 }

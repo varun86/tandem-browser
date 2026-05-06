@@ -20,10 +20,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { API_PORT } from '../utils/constants';
+import { buildLocalApiBaseUrl, readApiPortFromBootstrap } from '../config/api-endpoints';
 import { tandemDir } from '../utils/paths';
 
-const API = `http://localhost:${API_PORT}`;
+function getApiBase(): string {
+  return buildLocalApiBaseUrl(readApiPortFromBootstrap());
+}
 const SCOUT_DIR = tandemDir('x-scout');
 const STATE_FILE = path.join(SCOUT_DIR, 'state.json');
 const FINDINGS_FILE = path.join(SCOUT_DIR, 'findings.json');
@@ -100,7 +102,7 @@ async function api<T = unknown>(endpoint: string, method = 'GET', body?: unknown
     opts.headers = { 'Content-Type': 'application/json' };
     opts.body = JSON.stringify(body);
   }
-  const res = await fetch(`${API}${endpoint}`, opts);
+  const res = await fetch(`${getApiBase()}${endpoint}`, opts);
   return res.json() as Promise<T>;
 }
 
@@ -117,7 +119,7 @@ async function scroll(amount = 2): Promise<void> {
 
 async function screenshot(): Promise<string> {
   // Returns base64 screenshot
-  const res = await fetch(`${API}/screenshot`);
+  const res = await fetch(`${getApiBase()}/screenshot`);
   const buf = await res.arrayBuffer();
   return Buffer.from(buf).toString('base64');
 }

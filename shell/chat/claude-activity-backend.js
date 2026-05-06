@@ -17,7 +17,7 @@ class ClaudeActivityBackend {
     this._pollTimer = null;
     this._pollInterval = 2000; // 2 seconds
     this._lastSeenId = 0;
-    this._apiBase = 'http://localhost:8765';
+    this._apiBase = window.tandemApi?.baseUrl() || window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765';
 
     this._messageCallbacks = [];
     this._typingCallbacks = [];

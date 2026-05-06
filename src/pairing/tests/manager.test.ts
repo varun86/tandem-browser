@@ -115,6 +115,12 @@ describe('PairingManager', () => {
       expect(result.binding.machineId).toBe('machine-123');
       expect(result.binding.agentLabel).toBe('Claude Code on TestMachine');
       expect(result.binding.agentType).toBe('claude-code');
+      expect(result.binding.startup).toEqual({
+        skillReadAt: null,
+        manifestReadAt: null,
+        bootstrapReadAt: null,
+        completedAt: null,
+      });
     });
 
     it('rejects invalid code', () => {
@@ -221,6 +227,56 @@ describe('PairingManager', () => {
       expect(new Date(result!.lastUsedAt!).getTime()).toBeGreaterThanOrEqual(
         new Date(binding.lastUsedAt!).getTime()
       );
+    });
+  });
+
+  describe('recordStartupRead', () => {
+    it('tracks required startup reads and marks completion', () => {
+      const setupCode = manager.generateSetupCode();
+      const { token } = manager.exchangeSetupCode(makeExchangeInput({ code: setupCode.code }));
+
+      const first = manager.recordStartupRead(token, '/skill');
+      expect(first?.complete).toBe(false);
+      expect(first?.missingEndpoints).toEqual(['/agent/manifest', '/agent/bootstrap']);
+
+      const second = manager.recordStartupRead(token, '/agent/manifest');
+      expect(second?.complete).toBe(false);
+      expect(second?.missingEndpoints).toEqual(['/agent/bootstrap']);
+
+      const third = manager.recordStartupRead(token, '/agent/bootstrap');
+      expect(third?.complete).toBe(true);
+      expect(third?.missingEndpoints).toEqual([]);
+      expect(third?.binding.startup?.completedAt).toBeTruthy();
+    });
+
+    it('keeps loaded legacy bindings without startup state compatible', () => {
+      const existingData = {
+        bindings: [{
+          id: 'existing-id',
+          machineId: 'machine-1',
+          machineName: 'OldMachine',
+          agentLabel: 'Old Agent',
+          agentType: 'openclaw',
+          bindingKind: 'remote',
+          transportModes: ['http'],
+          tokenHash: 'abc123',
+          tokenPrefix: 'tdm_ast_12345678',
+          state: 'paired',
+          createdAt: '2026-01-01T00:00:00Z',
+          lastUsedAt: null,
+          pausedAt: null,
+          revokedAt: null,
+        }],
+        events: [],
+      };
+
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(existingData));
+
+      const freshManager = new PairingManager();
+      const bindings = freshManager.listBindings();
+      expect(bindings[0].startup).toBeUndefined();
+      freshManager.destroy();
     });
   });
 

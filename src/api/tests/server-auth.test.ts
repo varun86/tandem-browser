@@ -142,6 +142,100 @@ describe('TandemAPI extension auth', () => {
 // CORS origin policy — audit #34 Medium #1
 // ─────────────────────────────────────────────────────────────────────
 
+describe('TandemAPI paired-agent startup gate', () => {
+  function buildApi() {
+    const ctx = createMockContext();
+    const api = new TandemAPI({ win: ctx.win as any, registry: ctx as any });
+    const app = (api as unknown as { app: Application }).app;
+    return { app, ctx };
+  }
+
+  function startupStatus(overrides: Partial<{
+    required: boolean;
+    complete: boolean;
+    missingEndpoints: string[];
+    nextRequiredEndpoint: string | null;
+  }> = {}) {
+    return {
+      binding: {
+        id: 'binding-1',
+        machineId: 'machine-1',
+        machineName: 'TestMachine',
+        agentLabel: 'Codex',
+        agentType: 'codex',
+        bindingKind: 'local',
+        transportModes: ['http'],
+        state: 'paired',
+        createdAt: new Date().toISOString(),
+        lastUsedAt: new Date().toISOString(),
+        pausedAt: null,
+        revokedAt: null,
+        tokenPrefix: 'tdm_ast_12345678',
+      },
+      required: true,
+      complete: false,
+      missingEndpoints: ['/skill', '/agent/manifest', '/agent/bootstrap'],
+      nextRequiredEndpoint: '/skill',
+      ...overrides,
+    };
+  }
+
+  it('blocks normal API use for new paired agents until startup reads complete', async () => {
+    const { app, ctx } = buildApi();
+    vi.mocked(ctx.pairingManager.recordStartupRead).mockReturnValue(startupStatus());
+
+    const res = await request(app)
+      .get('/tabs/list')
+      .set('Authorization', 'Bearer tdm_ast_testtoken');
+
+    expect(res.status).toBe(428);
+    expect(res.body.code).toBe('agent_startup_required');
+    expect(res.body.nextRequiredRead).toContain('/skill');
+    expect(res.body.requiredStartupSequence.map((step: { endpoint: string }) => step.endpoint)).toContain('/agent/bootstrap');
+  });
+
+  it('allows the authenticated bootstrap route during paired-agent startup', async () => {
+    const { app, ctx } = buildApi();
+    vi.mocked(ctx.pairingManager.recordStartupRead).mockReturnValue(startupStatus({
+      missingEndpoints: ['/skill', '/agent/manifest'],
+      nextRequiredEndpoint: '/skill',
+    }));
+
+    const res = await request(app)
+      .get('/agent/bootstrap')
+      .set('Authorization', 'Bearer tdm_ast_testtoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.docs.llmSkill).toContain('/skill');
+  });
+
+  it('allows normal API use once paired-agent startup is complete', async () => {
+    const { app, ctx } = buildApi();
+    vi.mocked(ctx.pairingManager.recordStartupRead).mockReturnValue(startupStatus({
+      complete: true,
+      missingEndpoints: [],
+      nextRequiredEndpoint: null,
+    }));
+
+    const res = await request(app)
+      .get('/tabs/list')
+      .set('Authorization', 'Bearer tdm_ast_testtoken');
+
+    expect(res.status).toBe(200);
+  });
+
+  it('does not gate the legacy local api-token', async () => {
+    const { app, ctx } = buildApi();
+
+    const res = await request(app)
+      .get('/tabs/list')
+      .set('Authorization', `Bearer ${'a'.repeat(64)}`);
+
+    expect(res.status).toBe(200);
+    expect(ctx.pairingManager.recordStartupRead).not.toHaveBeenCalled();
+  });
+});
+
 describe('TandemAPI CORS policy', () => {
   function buildApi() {
     const ctx = createMockContext();

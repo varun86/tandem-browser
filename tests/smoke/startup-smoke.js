@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 const { execFile, spawn } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const root = path.join(__dirname, '..', '..');
 const startScript = path.join(root, 'scripts', 'start.js');
-const statusUrl = process.env.TANDEM_SMOKE_STATUS_URL || 'http://127.0.0.1:8765/status';
+const apiPort = readSmokeApiPort();
+const statusUrl = process.env.TANDEM_SMOKE_STATUS_URL || `http://127.0.0.1:${apiPort}/status`;
 const timeoutMs = Number.parseInt(process.env.TANDEM_SMOKE_TIMEOUT_MS || '60000', 10);
 const pollIntervalMs = Number.parseInt(process.env.TANDEM_SMOKE_POLL_MS || '1000', 10);
 const requestTimeoutMs = Number.parseInt(process.env.TANDEM_SMOKE_REQUEST_MS || '2500', 10);
@@ -13,6 +15,35 @@ const requestTimeoutMs = Number.parseInt(process.env.TANDEM_SMOKE_REQUEST_MS || 
 let child = null;
 let childError = null;
 let cleanupStarted = false;
+
+function tandemDataDir() {
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA?.trim() || path.join(os.homedir(), 'AppData', 'Roaming');
+    return path.join(appData, 'Tandem Browser');
+  }
+  return path.join(os.homedir(), '.tandem');
+}
+
+function parsePort(value) {
+  const raw = String(value ?? '').trim();
+  if (!/^\d+$/.test(raw)) return null;
+  const port = Number(raw);
+  return Number.isInteger(port) && port >= 1 && port <= 65535 ? port : null;
+}
+
+function readSmokeApiPort() {
+  const explicit = parsePort(process.env.TANDEM_SMOKE_API_PORT || process.env.TANDEM_API_PORT);
+  if (explicit) return explicit;
+  try {
+    const configPath = path.join(tandemDataDir(), 'config.json');
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      const configured = parsePort(cfg?.general?.apiPort);
+      if (configured) return configured;
+    }
+  } catch {}
+  return 8765;
+}
 
 function log(message) {
   console.log(`[smoke:startup] ${message}`);

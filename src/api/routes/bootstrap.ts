@@ -11,41 +11,50 @@ import type { Router, Request, Response } from 'express';
 import { app } from 'electron';
 import type { RouteContext } from '../context';
 import { tandemDir } from '../../utils/paths';
+import { API_PORT } from '../../utils/constants';
+import {
+  AGENT_OPERATING_RULES,
+  AGENT_STARTUP_SEQUENCE,
+  AGENT_TOOL_SELECTION_HINTS,
+  CAPABILITY_FAMILIES,
+  buildAgentBootstrapContract,
+  withBaseUrl,
+} from '../agent-bootstrap';
 
-/** Capability families exposed by Tandem, grouped for agent discovery. */
-const CAPABILITY_FAMILIES = [
-  'browser',
-  'tabs',
-  'navigation',
-  'snapshots',
-  'devtools',
-  'network',
-  'sessions',
-  'agents',
-  'content',
-  'media',
-  'extensions',
-  'data',
-  'handoffs',
-  'sidebar',
-  'workspaces',
-  'sync',
-  'pinboards',
-  'previews',
-  'awareness',
-  'clipboard',
-  'security',
-];
-
-export function registerBootstrapRoutes(router: Router, _ctx: RouteContext): void {
+export function registerBootstrapRoutes(router: Router, ctx: RouteContext): void {
   const getVersion = (): string => {
     try { return app.getVersion(); } catch { return 'unknown'; }
   };
 
   /** Derive base URL from the incoming request's Host header. */
   const getBaseUrl = (req: Request): string => {
-    const host = req.headers.host ?? 'localhost:8765';
+    const apiPort = ctx.configManager.getConfig().general?.apiPort ?? API_PORT;
+    const host = req.headers.host ?? `127.0.0.1:${apiPort}`;
     return `http://${host}`;
+  };
+
+  const getRuntimeContext = () => {
+    const activeTab = ctx.tabManager.getActiveTab();
+    const workspaces = ctx.workspaceManager.list();
+    const activeWorkspace = ctx.workspaceManager.getActive();
+    return {
+      activeTab,
+      tabs: ctx.tabManager.listTabs(),
+      activeWorkspace,
+      activeWorkspaceId: ctx.workspaceManager.getActiveId(),
+      activeWorkspaceSource: ctx.workspaceManager.getActiveSource(),
+      activeTabWorkspaceId: activeTab
+        ? ctx.workspaceManager.getWorkspaceIdForTab(activeTab.webContentsId)
+        : null,
+      workspaces: workspaces.map(workspace => ({
+        id: workspace.id,
+        name: workspace.name,
+        icon: workspace.icon,
+        color: workspace.color,
+        isDefault: workspace.isDefault,
+        tabCount: workspace.tabIds.length,
+      })),
+    };
   };
 
   // ═══════════════════════════════════════════════
@@ -61,6 +70,16 @@ export function registerBootstrapRoutes(router: Router, _ctx: RouteContext): voi
 **Version:** ${version}
 **Base URL:** \`${baseUrl}\`
 **Auth:** Bearer token (via pairing or local api-token)
+
+## Required agent startup sequence
+
+Do this before treating Tandem as a usable browser tool. The setup code only
+connects you; the next reads teach you what this running Tandem instance can do.
+
+${withBaseUrl(baseUrl, AGENT_STARTUP_SEQUENCE).map(step => `${step.order}. \`${step.auth === 'bearer' ? 'GET with Bearer token' : 'GET'} ${step.url}\` - ${step.purpose}`).join('\n')}
+
+After that, use Tandem with these operating rules:
+${AGENT_OPERATING_RULES.map(rule => `- ${rule}`).join('\n')}
 
 ## How to connect
 
@@ -150,6 +169,7 @@ Pair first using the setup code flow above, then configure your MCP client:
 Both transports provide the same 250+ tools with full parity.
 
 ## Discovery
+- \`GET ${baseUrl}/agent/bootstrap\` — authenticated agent bootstrap contract with runtime context
 - \`GET ${baseUrl}/agent/manifest\` — full machine-readable manifest with all endpoints (JSON)
 - \`GET ${baseUrl}/agent/version\` — version and capability summary (JSON)
 - \`GET ${baseUrl}/skill\` — version-matched usage guide
@@ -189,6 +209,30 @@ See \`GET ${baseUrl}/agent/manifest\` for the full list of 300+ endpoints.
   });
 
   // ═══════════════════════════════════════════════
+  // GET /agent/bootstrap - authenticated agent startup contract
+  // ═══════════════════════════════════════════════
+
+  router.get('/agent/bootstrap', (req: Request, res: Response) => {
+    const version = getVersion();
+    const baseUrl = getBaseUrl(req);
+    res.json({
+      ...buildAgentBootstrapContract(baseUrl, version),
+      runtime: getRuntimeContext(),
+      recommendedSelfTest: {
+        purpose: 'Verify the connected agent can use Tandem as a browser before starting real work.',
+        steps: [
+          'GET /workspaces and find or create the agent workspace.',
+          'POST /tabs/open with workspaceId and a harmless URL.',
+          'GET /page-content with X-Tab-Id for the opened tab.',
+          'GET /snapshot?compact=true with X-Tab-Id for the opened tab.',
+          'Use POST /snapshot/click only on a harmless target, then verify /status or /page-content.',
+          'GET /screenshot to verify visual capture.',
+        ],
+      },
+    });
+  });
+
+  // ═══════════════════════════════════════════════
   // GET /agent/manifest — full machine-readable manifest
   // ═══════════════════════════════════════════════
 
@@ -220,6 +264,10 @@ See \`GET ${baseUrl}/agent/manifest\` for the full list of 300+ endpoints.
       },
       authMethods: ['bearer-token'],
       pairingSupported: true,
+      startupSequence: withBaseUrl(baseUrl, AGENT_STARTUP_SEQUENCE),
+      primaryInteractionModel: 'snapshot-first explicit tab targeting',
+      operatingRules: AGENT_OPERATING_RULES,
+      toolSelectionHints: AGENT_TOOL_SELECTION_HINTS,
       pairing: {
         setupCodeFormat: 'TDM-XXXX-XXXX',
         setupCodeTtlSeconds: 300,
@@ -232,6 +280,7 @@ See \`GET ${baseUrl}/agent/manifest\` for the full list of 300+ endpoints.
         bootstrap: {
           agent: { method: 'GET', path: '/agent', description: 'Human-readable bootstrap page' },
           version: { method: 'GET', path: '/agent/version', description: 'Version and capability summary' },
+          bootstrap: { method: 'GET', path: '/agent/bootstrap', description: 'Authenticated agent bootstrap contract with runtime context', auth: 'required' },
           manifest: { method: 'GET', path: '/agent/manifest', description: 'This manifest' },
           skill: { method: 'GET', path: '/skill', description: 'Version-matched usage guide' },
         },
@@ -456,7 +505,13 @@ to inspect, browse, and interact with the user's real browser context.
 - Leave durable handoffs instead of retrying blindly
 
 ## Auth
-All requests require: \`Authorization: Bearer <your-token>\`
+Authenticated API requests require: \`Authorization: Bearer <your-token>\`
+
+## Required startup sequence
+${withBaseUrl(baseUrl, AGENT_STARTUP_SEQUENCE).map(step => `${step.order}. \`${step.auth === 'bearer' ? 'GET with Bearer token' : 'GET'} ${step.url}\` - ${step.purpose}`).join('\n')}
+
+## Operating rules
+${AGENT_OPERATING_RULES.map(rule => `- ${rule}`).join('\n')}
 
 ## Quick start workflow
 1. \`GET ${baseUrl}/status\` — check Tandem is ready, see active tab
@@ -471,6 +526,13 @@ All requests require: \`Authorization: Bearer <your-token>\`
 - \`POST ${baseUrl}/tabs/open\` with \`{ "url": "..." }\` — open new tab
 - \`POST ${baseUrl}/tabs/focus\` with \`{ "tabId": "..." }\` — switch tabs
 - Use \`X-Tab-Id: <id>\` header to target a background tab
+
+## Tool selection
+- Read: use \`GET ${baseUrl}/page-content\` first, then \`GET ${baseUrl}/page-html\` only when raw markup matters
+- Inspect interactive UI: use \`GET ${baseUrl}/snapshot?compact=true\`
+- Act: use \`POST ${baseUrl}/snapshot/click\` and \`POST ${baseUrl}/snapshot/fill\` with refs from the latest snapshot
+- Debug: use \`GET ${baseUrl}/devtools/console/errors\`, \`GET ${baseUrl}/devtools/network\`, and \`GET ${baseUrl}/network/har\`
+- Collaborate: use \`POST ${baseUrl}/handoffs\` for captcha, login, MFA, approval, ambiguity, or human review
 
 ## Screenshots
 - \`GET ${baseUrl}/screenshot\` — capture the visible page (base64 PNG)

@@ -22,7 +22,7 @@ class OpenClawBackend {
 
     this._sessionKey = 'agent:main:main';
     this._wsUrl = 'ws://127.0.0.1:18789';
-    this._apiBase = 'http://localhost:8765';
+    this._apiBase = window.tandemApi?.baseUrl() || window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765';
 
     // Callback registrations
     this._messageCallbacks = [];

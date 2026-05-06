@@ -293,7 +293,8 @@ export class GooglePhotosManager {
   // === 7. Private helpers ===
 
   private getRedirectUri(): string {
-    return `http://127.0.0.1:${API_PORT}/google-photos/oauth/callback`;
+    const apiPort = this.configManager.getConfig().general?.apiPort ?? API_PORT;
+    return `http://127.0.0.1:${apiPort}/google-photos/oauth/callback`;
   }
 
   private loadAuth(): GooglePhotosAuth | null {

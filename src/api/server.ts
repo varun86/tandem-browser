@@ -7,6 +7,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { tandemDir } from '../utils/paths';
 import { API_PORT } from '../utils/constants';
+import { detectApiAddresses, writeApiEndpointBootstrap } from '../config/api-endpoints';
 import type { BrowserWindow } from 'electron';
 import type { ManagerRegistry } from '../registry';
 import type { RouteContext } from './context';
@@ -33,6 +34,10 @@ import { registerAwarenessRoutes } from './routes/awareness';
 import { registerClipboardRoutes } from './routes/clipboard';
 import { registerBootstrapRoutes } from './routes/bootstrap';
 import { registerPairingRoutes } from './routes/pairing';
+import {
+  AGENT_STARTUP_SEQUENCE,
+  withBaseUrl,
+} from './agent-bootstrap';
 import { registerSecurityRoutes } from '../security/routes';
 import { nmProxy, TRUSTED_EXTENSION_PROXY_PATHS } from '../extensions/nm-proxy';
 import { WatchLiveWebSocket } from '../watch/live-ws';
@@ -64,6 +69,7 @@ type ApiCallerClass =
   | 'public-healthcheck'
   | 'shell-internal'
   | 'local-automation'
+  | 'paired-agent'
   | 'extension-origin'
   | 'unknown-local-process';
 
@@ -76,7 +82,23 @@ interface ApiCallerInfo {
   remoteAddress: string | null;
   extensionId: string | null;
   extensionAccess?: ExtensionRouteAccessDecision | null;
+  startupStatus?: {
+    required: boolean;
+    complete: boolean;
+    missingEndpoints: string[];
+    nextRequiredEndpoint: string | null;
+  } | null;
 }
+
+const AGENT_STARTUP_ALLOWED_PATHS = new Set<string>([
+  '/agent',
+  '/agent/version',
+  '/agent/manifest',
+  '/agent/bootstrap',
+  '/skill',
+  '/status',
+  '/pairing/whoami',
+]);
 
 /** Generate or load API auth token from the platform-specific Tandem data directory. */
 function getOrCreateAuthToken(): string {
@@ -175,7 +197,7 @@ export class TandemAPI {
       } else {
         log.warn(`Blocked API request (${decision.caller.kind}) ${req.method} ${req.path}: ${decision.reason}`);
       }
-      res.status(decision.status).json({ error: decision.reason });
+      res.status(decision.status).json(decision.body ?? { error: decision.reason });
     });
 
     // MCP over Streamable HTTP — remote agents use POST/GET/DELETE /mcp
@@ -307,9 +329,16 @@ export class TandemAPI {
     reason: string;
     status: number;
     extensionAccess: ExtensionRouteAccessDecision | null;
+    body?: unknown;
   } {
     const caller = this.classifyCaller(req);
     if (caller.authMode === 'public' || caller.kind === 'local-automation') {
+      return { allowed: true, caller, reason: 'authorized', status: 200, extensionAccess: null };
+    }
+
+    if (caller.kind === 'paired-agent') {
+      const startupDecision = this.authorizePairedAgentStartup(req, caller);
+      if (!startupDecision.allowed) return startupDecision;
       return { allowed: true, caller, reason: 'authorized', status: 200, extensionAccess: null };
     }
 
@@ -373,17 +402,32 @@ export class TandemAPI {
     const authMode = this.getAuthModeForPath(req.path);
     const bearerToken = this.extractBearerToken(req.headers.authorization);
 
-    if (authMode === 'public') {
-      return { kind: 'public-healthcheck', authMode, origin, remoteAddress, extensionId: null };
-    }
-
     if (bearerToken && this.isTokenValid(bearerToken)) {
       return { kind: 'local-automation', authMode: 'token', origin, remoteAddress, extensionId: null };
     }
 
     // Check binding tokens from paired agents
-    if (bearerToken && this.isBindingTokenValid(bearerToken)) {
-      return { kind: 'local-automation', authMode: 'token', origin, remoteAddress, extensionId: null };
+    if (bearerToken) {
+      const startupStatus = this.registry.pairingManager.recordStartupRead?.(bearerToken, req.path) ?? null;
+      if (startupStatus) {
+        return {
+          kind: 'paired-agent',
+          authMode: 'token',
+          origin,
+          remoteAddress,
+          extensionId: null,
+          startupStatus: {
+            required: startupStatus.required,
+            complete: startupStatus.complete,
+            missingEndpoints: startupStatus.missingEndpoints,
+            nextRequiredEndpoint: startupStatus.nextRequiredEndpoint,
+          },
+        };
+      }
+    }
+
+    if (authMode === 'public') {
+      return { kind: 'public-healthcheck', authMode, origin, remoteAddress, extensionId: null };
     }
 
     if (
@@ -405,6 +449,46 @@ export class TandemAPI {
     if (PUBLIC_ROUTE_PATHS.has(pathname)) return 'public';
     if (TRUSTED_EXTENSION_HTTP_PATHS.has(pathname)) return 'trusted-extension';
     return 'token';
+  }
+
+  private authorizePairedAgentStartup(req: Request, caller: ApiCallerInfo): {
+    allowed: boolean;
+    caller: ApiCallerInfo;
+    reason: string;
+    status: number;
+    extensionAccess: null;
+    body?: unknown;
+  } {
+    const startup = caller.startupStatus;
+    if (!startup?.required || startup.complete || AGENT_STARTUP_ALLOWED_PATHS.has(req.path)) {
+      return { allowed: true, caller, reason: 'authorized', status: 200, extensionAccess: null };
+    }
+
+    const baseUrl = this.getRequestBaseUrl(req);
+    const nextRequiredRead = startup.nextRequiredEndpoint
+      ? `${baseUrl}${startup.nextRequiredEndpoint}`
+      : `${baseUrl}/skill`;
+    const reason = 'Agent startup is required before using Tandem APIs.';
+    return {
+      allowed: false,
+      caller,
+      reason,
+      status: 428,
+      extensionAccess: null,
+      body: {
+        error: reason,
+        code: 'agent_startup_required',
+        message: 'Read the required Tandem startup resources with this Bearer token, then retry the request.',
+        nextRequiredRead,
+        missingReads: startup.missingEndpoints.map(endpoint => `${baseUrl}${endpoint}`),
+        requiredStartupSequence: withBaseUrl(baseUrl, AGENT_STARTUP_SEQUENCE),
+      },
+    };
+  }
+
+  private getRequestBaseUrl(req: Request): string {
+    const host = req.headers.host ?? `127.0.0.1:${this.port}`;
+    return `http://${host}`;
   }
 
   private extractBearerToken(authorizationHeader: string | undefined): string | null {
@@ -535,7 +619,7 @@ export class TandemAPI {
     // Default: 0.0.0.0 (all interfaces — supports both local and Tailscale remote).
     // Existing installs with 127.0.0.1 are auto-migrated to 0.0.0.0 on config load.
     const listenHost = this.registry.configManager.getConfig().general?.apiListenHost ?? '0.0.0.0';
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.server = this.app.listen(this.port, listenHost, () => {
         if (this.server) {
           this.watchLiveWebSocket?.close();
@@ -544,7 +628,16 @@ export class TandemAPI {
           });
         }
         this.mcpTransportManager.start();
+        const addresses = detectApiAddresses({ apiPort: this.port, apiListenHost: listenHost });
+        writeApiEndpointBootstrap({ apiPort: this.port, apiListenHost: listenHost, addresses });
         resolve();
+      });
+      this.server.on('error', (error: NodeJS.ErrnoException) => {
+        if (error.code === 'EADDRINUSE') {
+          reject(new Error(`Tandem Agent API port ${this.port} is already in use. Stop the other process or choose a different Agent API port in Settings.`));
+          return;
+        }
+        reject(error);
       });
     });
   }

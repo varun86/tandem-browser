@@ -1,9 +1,11 @@
 import * as fs from 'fs';
 import { tandemDir } from '../utils/paths';
-import { API_PORT } from '../utils/constants';
+import { buildLocalApiBaseUrl, readApiPortFromBootstrap } from '../config/api-endpoints';
 import { normalizeTabSource } from '../tabs/context';
 
-const API_BASE = `http://localhost:${API_PORT}`;
+function getApiBase(): string {
+  return buildLocalApiBaseUrl(readApiPortFromBootstrap());
+}
 
 function getToken(): string {
   const tokenPath = tandemDir('api-token');
@@ -16,7 +18,7 @@ export async function apiCall(method: string, endpoint: string, body?: any, head
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE}${endpoint}`, {
+    response = await fetch(`${getApiBase()}${endpoint}`, {
       method,
       headers: {
         'Content-Type': 'application/json',

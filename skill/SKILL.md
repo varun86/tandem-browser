@@ -39,12 +39,30 @@ This works for both local and remote agents, and does not require repo access:
 
 - `GET /agent` — human-readable bootstrap page
 - `GET /agent/manifest` — machine-readable endpoint manifest with all route families
+- `GET /agent/bootstrap` — authenticated bootstrap contract with runtime context,
+  operating rules, and the agent toolbox
 - `GET /skill` — version-matched usage guide
 - `GET /agent/version` — version and capability summary
 
 These routes are public (no auth required) and use the request `Host` header,
-so they return correct URLs whether accessed at `localhost:8765` or over
-Tailscale.
+so they return correct URLs whether accessed locally or over Tailscale on the
+configured Agent API port.
+
+After pairing or reading a local token, immediately read these resources. When
+you have a paired binding token, include `Authorization: Bearer <token>` on
+these reads so Tandem can mark startup complete:
+
+1. `GET /skill`
+2. `GET /agent/manifest`
+3. `GET /agent/bootstrap` with `Authorization: Bearer <token>`
+4. `GET /status`
+5. `GET /workspaces` with `Authorization: Bearer <token>`
+
+Do not stop at "auth works." The bootstrap and manifest are the contract that
+teaches a newly connected agent how to use Tandem as a full browser layer.
+New paired agents that skip `/skill`, `/agent/manifest`, or `/agent/bootstrap`
+will receive `428 agent_startup_required` on normal API/MCP routes until the
+startup reads are complete.
 
 ### Practical Connection Reality
 
@@ -65,7 +83,7 @@ Practical notes:
 
 ### Option 1: MCP Server (local or remote)
 
-The MCP server exposes 253 tools with full API parity.
+The MCP server exposes 257 tools with full API parity.
 
 **Same machine (stdio):** Add to your MCP client configuration
 (e.g. `~/.claude/settings.json` for Claude Code):
@@ -89,7 +107,7 @@ Settings > Connected Agents, then configure:
   "mcpServers": {
     "tandem": {
       "type": "streamable-http",
-      "url": "http://<tandem-tailscale-ip>:8765/mcp",
+      "url": "http://<tandem-tailscale-ip>:<configured-port>/mcp",
       "headers": {
         "Authorization": "Bearer <your-binding-token>"
       }
@@ -109,7 +127,8 @@ token from `~/.tandem/api-token`. Remote agents use a binding token obtained
 through Tandem's pairing flow.
 
 ```bash
-API="http://127.0.0.1:8765"            # or http://<tailscale-ip>:8765 for remote
+API_PORT="$(cat ~/.tandem/api-port 2>/dev/null || printf 8765)"
+API="http://127.0.0.1:${API_PORT}"     # or http://<tailscale-ip>:<configured-port> for remote
 TOKEN="$(cat ~/.tandem/api-token)"      # or binding token from pairing
 AUTH_HEADER="Authorization: Bearer $TOKEN"
 JSON_HEADER="Content-Type: application/json"
@@ -120,6 +139,11 @@ tab_id() {
 
 curl -sS "$API/status"
 ```
+
+The Agent API port defaults to `8765` and is configurable in Tandem Settings.
+Local clients can read the current port from `~/.tandem/api-port` or the richer
+endpoint metadata in `~/.tandem/api-endpoints.json`. Do not replace
+`~/.tandem/api-token`; it remains the local bootstrap token contract.
 
 ## Orienting yourself on connect
 
@@ -1036,6 +1060,10 @@ Common failures and what they usually mean:
 
 - `401 Unauthorized`
   Fix: re-read `~/.tandem/api-token`.
+
+- `428 agent_startup_required`
+  Fix: read `GET /skill`, `GET /agent/manifest`, and
+  `GET /agent/bootstrap` with your binding token, then retry the request.
 
 - `Tab <id> not found`
   Fix: refresh the tab list or reopen the helper tab.

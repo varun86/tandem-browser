@@ -115,8 +115,51 @@ describe('Pairing Routes', () => {
       expect(res.body.token).toBe('tdm_ast_testtoken');
       expect(res.body.binding.id).toBe('binding-1');
       expect(res.body.binding.state).toBe('paired');
+      expect(res.body.bootstrap.message).toContain('Connection succeeded');
+      expect(res.body.bootstrap.enforcement.enabled).toBe(true);
+      expect(res.body.bootstrap.nextRequiredReads.map((step: { endpoint: string }) => step.endpoint)).toContain('/skill');
+      expect(res.body.bootstrap.nextRequiredReads.map((step: { endpoint: string }) => step.endpoint)).toContain('/agent/bootstrap');
+      expect(res.body.bootstrap.docs.authenticatedBootstrap).toContain('/agent/bootstrap');
+      expect(res.body.bootstrap.recommendedWorkflow).toContain('snapshot');
       // No mcp field when transport doesn't include 'mcp'
       expect(res.body.mcp).toBeUndefined();
+    });
+
+    it('uses Host header for bootstrap URLs in exchange response', async () => {
+      vi.mocked(ctx.pairingManager.exchangeSetupCode).mockReturnValue({
+        token: 'tdm_ast_testtoken',
+        binding: {
+          id: 'binding-1',
+          machineId: 'machine-1',
+          machineName: 'TestMachine',
+          agentLabel: 'Claude Code',
+          agentType: 'claude-code',
+          bindingKind: 'local',
+          transportModes: ['http'],
+          tokenHash: 'hash',
+          tokenPrefix: 'tdm_ast_12345678',
+          state: 'paired',
+          createdAt: new Date().toISOString(),
+          lastUsedAt: new Date().toISOString(),
+          pausedAt: null,
+          revokedAt: null,
+        },
+      });
+
+      const res = await request(app)
+        .post('/pairing/exchange')
+        .set('Host', '100.64.0.1:8765')
+        .send({
+          code: 'TDM-AAAA-BBBB',
+          machineId: 'machine-1',
+          machineName: 'TestMachine',
+          agentLabel: 'Claude Code',
+          agentType: 'claude-code',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.bootstrap.docs.llmSkill).toBe('http://100.64.0.1:8765/skill');
+      expect(res.body.bootstrap.nextRequiredReads[0].url).toBe('http://100.64.0.1:8765/skill');
     });
 
     it('includes MCP endpoint when transport includes mcp', async () => {

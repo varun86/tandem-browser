@@ -14,8 +14,9 @@ Tandem Browser was started by Robin Waslander (the maintainer of OpenClaw, https
 - Author: Robin Waslander (independent, no company, no VC)
 - Repository: https://github.com/hydro13/tandem-browser
 - Website: https://tandembrowser.org
-- Current version: 1.10.0 (developer preview)
-- Architecture: local-first, no cloud backend, optional remote agent connection over Tailscale
+- Current version: 1.11.0 (developer preview)
+- Architecture: local-first, no cloud backend, optional remote agent connection over Tailscale/private overlay networks
+- Agent API: configurable port, default 8765; local clients use 127.0.0.1 plus the configured port, remote agents use the Tailscale/private-network address plus the configured port
 - Agent surface: 250+ MCP tools, 300+ HTTP endpoints
 - Security: 8-layer pipeline (NetworkShield, OutboundGuard, ContentAnalyzer, ScriptGuard, BehaviorMonitor, Gatekeeper AI, EvolutionEngine, PromptInjection)
 

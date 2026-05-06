@@ -33,6 +33,13 @@ const SAFE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0, I/1, l
 
 export type BindingState = 'paired' | 'paused' | 'revoked';
 
+export interface AgentStartupState {
+  skillReadAt: string | null;
+  manifestReadAt: string | null;
+  bootstrapReadAt: string | null;
+  completedAt: string | null;
+}
+
 export interface AgentBinding {
   id: string;
   machineId: string;
@@ -48,6 +55,7 @@ export interface AgentBinding {
   lastUsedAt: string | null;
   pausedAt: string | null;
   revokedAt: string | null;
+  startup?: AgentStartupState;
 }
 
 export interface BindingEvent {
@@ -95,6 +103,15 @@ export interface BindingSummary {
   pausedAt: string | null;
   revokedAt: string | null;
   tokenPrefix: string;
+  startup?: AgentStartupState;
+}
+
+export interface AgentStartupStatus {
+  binding: BindingSummary;
+  required: boolean;
+  complete: boolean;
+  missingEndpoints: string[];
+  nextRequiredEndpoint: string | null;
 }
 
 // ─── Storage shape ──────────────────────────────────
@@ -136,6 +153,23 @@ function timingSafeCompare(a: string, b: string): boolean {
   } catch {
     return false;
   }
+}
+
+function createStartupState(): AgentStartupState {
+  return {
+    skillReadAt: null,
+    manifestReadAt: null,
+    bootstrapReadAt: null,
+    completedAt: null,
+  };
+}
+
+function isStartupComplete(startup: AgentStartupState): boolean {
+  return !!startup.skillReadAt && !!startup.manifestReadAt && !!startup.bootstrapReadAt;
+}
+
+function cloneStartup(startup: AgentStartupState | undefined): AgentStartupState | undefined {
+  return startup ? { ...startup } : undefined;
 }
 
 // ─── PairingManager ────────────────────────────────
@@ -288,6 +322,7 @@ export class PairingManager extends EventEmitter {
       binding.lastUsedAt = now;
       binding.pausedAt = null;
       binding.revokedAt = null;
+      binding.startup = createStartupState();
 
       this.addEvent(binding.id, 're-paired', {
         machineId: input.machineId,
@@ -310,6 +345,7 @@ export class PairingManager extends EventEmitter {
         lastUsedAt: now,
         pausedAt: null,
         revokedAt: null,
+        startup: createStartupState(),
       };
       this.bindings.push(binding);
 
@@ -351,26 +387,67 @@ export class PairingManager extends EventEmitter {
     return binding;
   }
 
+  /** Record required startup reads for newly paired agents. */
+  recordStartupRead(token: string, requestPath: string): AgentStartupStatus | null {
+    const binding = this.validateToken(token);
+    if (!binding) return null;
+
+    // Legacy bindings created before startup tracking shipped are treated as
+    // already initialized so existing local/remote agents do not break.
+    if (!binding.startup) {
+      return this.buildStartupStatus(binding, false);
+    }
+
+    const now = new Date().toISOString();
+    let changed = false;
+    if (requestPath === '/skill' && !binding.startup.skillReadAt) {
+      binding.startup.skillReadAt = now;
+      changed = true;
+    } else if (requestPath === '/agent/manifest' && !binding.startup.manifestReadAt) {
+      binding.startup.manifestReadAt = now;
+      changed = true;
+    } else if (requestPath === '/agent/bootstrap' && !binding.startup.bootstrapReadAt) {
+      binding.startup.bootstrapReadAt = now;
+      changed = true;
+    }
+
+    if (isStartupComplete(binding.startup) && !binding.startup.completedAt) {
+      binding.startup.completedAt = now;
+      this.addEvent(binding.id, 'startup-completed');
+      changed = true;
+    }
+
+    if (changed) {
+      this.save();
+      this.emit('binding-changed', binding);
+    }
+
+    return this.buildStartupStatus(binding, true);
+  }
+
+  private buildStartupStatus(binding: AgentBinding, required: boolean): AgentStartupStatus {
+    const missingEndpoints: string[] = [];
+    if (required && binding.startup) {
+      if (!binding.startup.skillReadAt) missingEndpoints.push('/skill');
+      if (!binding.startup.manifestReadAt) missingEndpoints.push('/agent/manifest');
+      if (!binding.startup.bootstrapReadAt) missingEndpoints.push('/agent/bootstrap');
+    }
+
+    return {
+      binding: this.toSummary(binding),
+      required,
+      complete: missingEndpoints.length === 0,
+      missingEndpoints,
+      nextRequiredEndpoint: missingEndpoints[0] ?? null,
+    };
+  }
+
   // ─── Binding management ───────────────────────────
 
   /** List all bindings (excludes removed ones, which are only in events). */
   listBindings(): BindingSummary[] {
     this.ensureLoaded();
-    return this.bindings.map(b => ({
-      id: b.id,
-      machineId: b.machineId,
-      machineName: b.machineName,
-      agentLabel: b.agentLabel,
-      agentType: b.agentType,
-      bindingKind: b.bindingKind,
-      transportModes: b.transportModes,
-      state: b.state,
-      createdAt: b.createdAt,
-      lastUsedAt: b.lastUsedAt,
-      pausedAt: b.pausedAt,
-      revokedAt: b.revokedAt,
-      tokenPrefix: b.tokenPrefix,
-    }));
+    return this.bindings.map(b => this.toSummary(b));
   }
 
   /** Get a single binding by ID. */
@@ -378,6 +455,10 @@ export class PairingManager extends EventEmitter {
     this.ensureLoaded();
     const b = this.bindings.find(b => b.id === id);
     if (!b) return null;
+    return this.toSummary(b);
+  }
+
+  private toSummary(b: AgentBinding): BindingSummary {
     return {
       id: b.id,
       machineId: b.machineId,
@@ -392,6 +473,7 @@ export class PairingManager extends EventEmitter {
       pausedAt: b.pausedAt,
       revokedAt: b.revokedAt,
       tokenPrefix: b.tokenPrefix,
+      startup: cloneStartup(b.startup),
     };
   }
 

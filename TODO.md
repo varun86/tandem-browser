@@ -14,8 +14,8 @@ Last updated: May 5, 2026
 
 ## Current Snapshot
 
-- Current app version: `1.10.0`
-- MCP server: 253 tools (full API parity + awareness)
+- Current app version: `1.11.0`
+- MCP server: 257 tools (full API parity + awareness)
 - The codebase scope is larger than this backlog summary and includes major subsystems such as `sidebar`, `workspaces`, `pinboards`, `sync`, `headless`, and `sessions`.
 - Scheduled browsing already exists in baseline form via `WatchManager` and the `/watch/*` API routes.
 - Session isolation already exists in baseline form via `SessionManager` and the `/sessions/*` API routes.
@@ -98,6 +98,13 @@ Last updated: May 5, 2026
 
 ## Recently Completed
 
+- [x] Agent bootstrap contract: pairing now returns explicit next-read links,
+  `/agent/bootstrap` exposes runtime context plus the agent toolbox, and
+  `/agent`, `/skill`, and `/agent/manifest` now make the required startup
+  sequence clear for newly connected agents.
+- [x] Configurable Agent API port settings: users can change the default
+  `8765` port, local clients discover the configured loopback endpoint through
+  bootstrap files, and remote Tailscale instructions use the configured port.
 - [x] Windows support Phase 12: centralized shortcut accelerator and label
   handling, switched Electron menus to `CommandOrControl` accelerator strings,
   preserved macOS shortcut labels, and rendered Windows shortcut labels as

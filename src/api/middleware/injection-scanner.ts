@@ -250,7 +250,12 @@ export function injectionScannerMiddleware(req: Request, res: Response, next: Ne
                     document.getElementById('tandem-inj-confirm-yes').addEventListener('click', async () => {
                       try {
                         const token = window.__TANDEM_TOKEN__ || '';
-                        await fetch('http://localhost:8765/security/injection-override', {
+                        const tandemApiBase = (
+                          window.tandemApi && typeof window.tandemApi.baseUrl === 'function'
+                            ? window.tandemApi.baseUrl()
+                            : window.__TANDEM_API_BASE__
+                        ) || 'http://127.0.0.1:8765';
+                        await fetch(tandemApiBase + '/security/injection-override', {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',

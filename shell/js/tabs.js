@@ -203,11 +203,12 @@
     }
 
     function createRendererTab(tabId, url, partition = 'persist:tandem', options = {}) {
+      const resolvedUrl = window.__tandemInternalUrl ? window.__tandemInternalUrl(url) : url;
       const webview = document.createElement('webview');
       // Chromium only applies a webview partition if it is present before first navigation.
       webview.setAttribute('partition', partition);
       webview.setAttribute('allowpopups', '');
-      webview.setAttribute('src', url);
+      webview.setAttribute('src', resolvedUrl);
       webview.dataset.tabId = tabId;
       container.appendChild(webview);
 
@@ -323,6 +324,7 @@
     window.__tandemTabs = {
       createTab(tabId, url, partition) {
         const entry = createRendererTab(tabId, url, partition || 'persist:tandem');
+        const resolvedUrl = entry.webview.getAttribute('src') || url;
         const TAB_INIT_TIMEOUT_MS = 15000;
 
         return new Promise((resolve, reject) => {
@@ -331,7 +333,7 @@
             if (settled) return;
             settled = true;
             cleanupTabDom(tabId);
-            reject(new Error(`Tab init timeout (${TAB_INIT_TIMEOUT_MS}ms): ${url}`));
+            reject(new Error(`Tab init timeout (${TAB_INIT_TIMEOUT_MS}ms): ${resolvedUrl}`));
           }, TAB_INIT_TIMEOUT_MS);
 
           entry.webview.addEventListener('dom-ready', () => {
@@ -453,14 +455,14 @@
 
     (async () => {
       const shellPath = window.location.href.replace(/\/[^/]*$/, '');
-      const initialUrl = shellPath + '/newtab.html';
+      const initialUrl = window.__tandemInternalUrl ? window.__tandemInternalUrl(shellPath + '/newtab.html') : shellPath + '/newtab.html';
       const entry = createRendererTab('__initial', initialUrl, 'persist:tandem', { active: true });
       urlBar.value = '';
 
       entry.webview.addEventListener('dom-ready', () => {
         const wcId = entry.webview.getWebContentsId();
         if (window.tandem) {
-          window.tandem.registerTab(wcId, initialUrl);
+          window.tandem.registerTab(wcId, entry.webview.getAttribute('src') || initialUrl);
         }
       }, { once: true });
 

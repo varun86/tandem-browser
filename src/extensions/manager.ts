@@ -7,6 +7,7 @@ import { CrxDownloader } from './crx-downloader';
 import type { NativeMessagingHostAccessDecision, NativeMessagingHost, NativeMessagingStatus } from './native-messaging';
 import { IdentityPolyfill } from './identity-polyfill';
 import { ActionPolyfill } from './action-polyfill';
+import { nmProxy } from './nm-proxy';
 import type { UpdateCheckResult, UpdateResult, UpdateState, InstalledExtension } from './update-checker';
 import { UpdateChecker } from './update-checker';
 import type { ExtensionConflict } from './conflict-detector';
@@ -137,6 +138,7 @@ export class ExtensionManager {
     this.nativeMessaging = selectPlatform().nativeMessaging.createSetup();
     this.identityPolyfill = new IdentityPolyfill(apiPort);
     this.actionPolyfill = new ActionPolyfill(apiPort);
+    nmProxy.setApiPort(apiPort);
     this.updateChecker = new UpdateChecker(this.downloader, this.loader);
     this.conflictDetector = new ConflictDetector();
   }

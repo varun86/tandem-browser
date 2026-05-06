@@ -678,6 +678,7 @@ export function createMockContext(): RouteContext {
       getActiveSetupCode: vi.fn().mockReturnValue(null),
       exchangeSetupCode: vi.fn().mockReturnValue({ token: 'tdm_ast_test', binding: { id: 'b1', state: 'paired' } }),
       validateToken: vi.fn().mockReturnValue(null),
+      recordStartupRead: vi.fn().mockReturnValue(null),
       listBindings: vi.fn().mockReturnValue([]),
       getBinding: vi.fn().mockReturnValue(null),
       pauseBinding: vi.fn().mockReturnValue(null),

@@ -46,6 +46,7 @@ describe('ConfigManager', () => {
       expect(config.general.activeBackend).toBe('tandem');
       expect(config.general.agentName).toBe('Wingman');
       expect(config.general.agentDisplayName).toBe('AI Wingman');
+      expect(config.general.apiPort).toBe(8765);
       expect(config.general.quickLinks).toHaveLength(6);
       expect(config.general.quickLinks[0]).toMatchObject({
         id: 'duckduckgo',
@@ -176,6 +177,18 @@ describe('ConfigManager', () => {
       const config = cm.getConfig();
       expect(config.general.language).toBe('fr-FR');
       expect(config.appearance.theme).toBe('light');
+    });
+
+    it('updates apiPort from a numeric string and stores it as a number', () => {
+      const cm = new ConfigManager();
+      cm.updateConfig({ general: { apiPort: '9876' } });
+      expect(cm.getConfig().general.apiPort).toBe(9876);
+    });
+
+    it.each(['', 'text', '12.5', '-1', 0, -1, 65536, 12.5])('rejects invalid apiPort %s without changing config', (apiPort) => {
+      const cm = new ConfigManager();
+      expect(() => cm.updateConfig({ general: { apiPort } })).toThrow();
+      expect(cm.getConfig().general.apiPort).toBe(8765);
     });
 
     it('replaces quick links with sanitized values', () => {

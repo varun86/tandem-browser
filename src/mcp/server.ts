@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import { API_PORT } from '../utils/constants';
+import { buildLocalApiBaseUrl, readApiPortFromBootstrap } from '../config/api-endpoints';
 import { tandemDir } from '../utils/paths';
 import { registerAllTools, registerAllResources } from './register-all.js';
 
@@ -54,7 +54,7 @@ function startEventListener(): void {
     } catch { return ''; }
   })();
 
-  const url = `http://localhost:${API_PORT}/events/stream`;
+  const url = `${buildLocalApiBaseUrl(readApiPortFromBootstrap())}/events/stream`;
 
   const connect = () => {
     fetch(url, token ? { headers: { 'Authorization': `Bearer ${token}` } } : {}).then(async (response) => {

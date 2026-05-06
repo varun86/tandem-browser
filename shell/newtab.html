@@ -7,11 +7,12 @@
        stamp data-theme before the inline <style> blocks are processed by the
        parser. Sync XHR is deprecated (console warning), but it's the only way
        to avoid a dark→light flash. Fails silently if the API isn't up. -->
+  <script src="js/api-base.js"></script>
   <script>
     (function () {
       try {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', 'http://localhost:8765/config', false);
+        xhr.open('GET', ((window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765') + '/config'), false);
         xhr.send();
         if (xhr.status === 200) {
           var cfg = JSON.parse(xhr.responseText);
@@ -350,7 +351,7 @@
   </div>
 
   <script>
-    const API = 'http://localhost:8765';
+    const API = window.tandemApi?.baseUrl() || window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765';
     const searchInput = document.getElementById('search');
     const quickLinksContainer = document.getElementById('quick-links');
     const editQuickLinksButton = document.getElementById('edit-quick-links');
@@ -482,7 +483,7 @@
     });
 
     editQuickLinksButton.addEventListener('click', () => {
-      window.location.href = 'settings.html#general';
+      window.location.href = window.__tandemInternalUrl ? window.__tandemInternalUrl('settings.html', '#general') : 'settings.html#general';
     });
 
     // Load recent tabs from API

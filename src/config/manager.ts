@@ -2,8 +2,9 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { tandemDir } from '../utils/paths';
-import { WEBHOOK_PORT } from '../utils/constants';
+import { API_PORT, WEBHOOK_PORT } from '../utils/constants';
 import { createLogger } from '../utils/logger';
+import { ConfigValidationError, normalizeApiPort, parseApiPort } from './api-endpoints';
 
 import { detectOpenClaw } from '../utils/openclaw-detect';
 const log = createLogger('ConfigManager');
@@ -34,6 +35,7 @@ export interface TandemConfig {
     agentDisplayName: string;
     quickLinks: QuickLinkConfig[];
     apiListenHost: string;
+    apiPort: number;
   };
 
   // Screenshots
@@ -137,6 +139,7 @@ const DEFAULT_CONFIG: TandemConfig = {
     agentDisplayName: 'AI Wingman',
     quickLinks: DEFAULT_QUICK_LINKS,
     apiListenHost: '0.0.0.0',
+    apiPort: API_PORT,
   },
   screenshots: {
     clipboard: true,
@@ -227,12 +230,13 @@ export class ConfigManager {
 
   /** Partial update — deep merges the patch into config */
   updateConfig(patch: Record<string, unknown>): TandemConfig {
-    const merged = this.deepMerge(this.config as unknown as Record<string, unknown>, patch) as unknown as TandemConfig;
+    const normalizedPatch = this.normalizePatch(patch);
+    const merged = this.deepMerge(this.config as unknown as Record<string, unknown>, normalizedPatch) as unknown as TandemConfig;
     // Enforce clipboard always true
     merged.screenshots.clipboard = true;
     this.config = this.normalizeConfig(merged);
     this.save();
-    this.notifyListeners(patch as Partial<TandemConfig>);
+    this.notifyListeners(normalizedPatch as Partial<TandemConfig>);
     return this.getConfig();
   }
 
@@ -385,9 +389,25 @@ export class ConfigManager {
       ...config,
       general: {
         ...config.general,
+        apiPort: normalizeApiPort(config.general.apiPort),
         quickLinks: this.normalizeQuickLinks(config.general.quickLinks),
       },
     };
+  }
+
+  private normalizePatch(patch: Record<string, unknown>): Record<string, unknown> {
+    const normalized = { ...patch };
+    const general = normalized.general;
+    if (general && typeof general === 'object' && !Array.isArray(general)) {
+      const normalizedGeneral = { ...(general as Record<string, unknown>) };
+      if (Object.prototype.hasOwnProperty.call(normalizedGeneral, 'apiPort')) {
+        normalizedGeneral.apiPort = parseApiPort(normalizedGeneral.apiPort);
+      }
+      normalized.general = normalizedGeneral;
+    } else if (Object.prototype.hasOwnProperty.call(normalized, 'general') && general !== undefined) {
+      throw new ConfigValidationError('general config must be an object.');
+    }
+    return normalized;
   }
 
   private normalizeQuickLinks(rawLinks: unknown): QuickLinkConfig[] {

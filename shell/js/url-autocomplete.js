@@ -3,7 +3,7 @@
  * Queries GET /history/search?q=<query> and shows a dropdown + inline completion.
  */
 (() => {
-  const API_BASE = 'http://localhost:8765';
+  const API_BASE = window.tandemApi?.baseUrl() || window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765';
   const DEBOUNCE_MS = 200;
   const MIN_CHARS = 2;
   const MAX_RESULTS = 8;

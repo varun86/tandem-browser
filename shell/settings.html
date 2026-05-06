@@ -7,11 +7,12 @@
        stamp data-theme before the inline <style> blocks are processed by the
        parser. Sync XHR is deprecated (console warning), but it's the only way
        to avoid a dark→light flash. Fails silently if the API isn't up. -->
+  <script src="js/api-base.js"></script>
   <script>
     (function () {
       try {
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', 'http://localhost:8765/config', false);
+        xhr.open('GET', ((window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765') + '/config'), false);
         xhr.send();
         if (xhr.status === 200) {
           var cfg = JSON.parse(xhr.responseText);
@@ -157,7 +158,7 @@
     .field-label { font-size: 13px; font-weight: 500; }
     .field-desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 
-    select, input[type="text"], input[type="url"] {
+    select, input[type="text"], input[type="url"], input[type="number"] {
       background: var(--input-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -167,7 +168,7 @@
       outline: none;
       min-width: 180px;
     }
-    select:focus, input[type="text"]:focus, input[type="url"]:focus {
+    select:focus, input[type="text"]:focus, input[type="url"]:focus, input[type="number"]:focus {
       border-color: var(--accent);
     }
 
@@ -1057,6 +1058,26 @@
       <h2>🔗 Connect your AI to Tandem</h2>
       <p class="section-desc">Let your AI agent work with you in Tandem Browser</p>
 
+      <div class="field field-stack">
+        <div class="field-info">
+          <div class="field-label">Agent API settings</div>
+          <div class="field-desc">Changing the port requires restarting Tandem.</div>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 160px;gap:10px;align-items:center;">
+          <div>
+            <div class="field-label" style="font-size:12px;">API port</div>
+            <div class="field-desc">Default: 8765</div>
+          </div>
+          <input type="number" id="cfg-apiPort" min="1" max="65535" step="1" inputmode="numeric" />
+        </div>
+        <div class="field-desc" id="agent-api-validation" style="color:var(--danger);display:none;"></div>
+        <div style="display:grid;gap:6px;font-size:12px;color:var(--text-dim);">
+          <div>Local endpoint: <strong style="color:var(--text)" id="agent-api-local-preview">http://127.0.0.1:8765</strong></div>
+          <div>Remote endpoint: <strong style="color:var(--text)" id="agent-api-remote-preview">Checking Tailscale...</strong></div>
+          <div>Listen host: <strong style="color:var(--text)" id="agent-api-listen-host">0.0.0.0</strong></div>
+        </div>
+      </div>
+
       <!-- Onboarding: mode selector -->
       <div class="field-group" id="agent-onboard">
         <label class="field-label">Where is your AI running?</label>
@@ -1121,7 +1142,7 @@
   <script src="js/api-auth.js"></script>
   <script src="js/shortcut-labels.js"></script>
   <script>
-    const API = 'http://localhost:8765';
+    const API = window.tandemApi?.baseUrl() || window.__TANDEM_API_BASE__ || 'http://127.0.0.1:8765';
     const quickLinksList = document.getElementById('cfg-quickLinks');
     let googlePhotosStatus = {};
 
@@ -1168,6 +1189,8 @@
       setChecked('cfg-showBookmarksBar', g.showBookmarksBar !== false);
       toggleField('field-customStartUrl', g.startPage === 'custom');
       renderQuickLinkRows(g.quickLinks || []);
+      setVal('cfg-apiPort', String(g.apiPort || 8765));
+      updateAgentApiPreview();
 
       // Liquid Glass Lite
       setChecked('cfg-lgl-enabled', lgl.enabled !== false);
@@ -1336,8 +1359,16 @@
         if (res.ok) {
           config = await res.json();
           showToast('Saved ✓');
+          return true;
+        } else {
+          const err = await res.json().catch(() => ({}));
+          showToast(err.error || 'Save failed ✕');
+          return false;
         }
-      } catch { showToast('Save failed ✕'); }
+      } catch {
+        showToast('Save failed ✕');
+        return false;
+      }
     }
 
     async function saveGooglePhotosClientId() {
@@ -1521,6 +1552,8 @@
     document.getElementById('cfg-startPage').addEventListener('change', (e) => {
       toggleField('field-customStartUrl', e.target.value === 'custom');
     });
+    document.getElementById('cfg-apiPort').addEventListener('input', updateAgentApiPreview);
+    document.getElementById('cfg-apiPort').addEventListener('change', () => void saveAgentApiPort());
     document.getElementById('cfg-userAgent').addEventListener('change', (e) => {
       toggleField('field-customUserAgent', e.target.value === 'custom');
     });
@@ -2278,11 +2311,73 @@
     let selectedMode = null; // 'local' | 'remote'
     let detectedAddresses = null;
 
+    function parseApiPortInput(value) {
+      const raw = String(value ?? '').trim();
+      if (!raw) return { ok: false, error: 'Agent API port is required.' };
+      if (!/^\d+$/.test(raw)) return { ok: false, error: 'Agent API port must contain digits only.' };
+      const port = Number(raw);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        return { ok: false, error: 'Agent API port must be between 1 and 65535.' };
+      }
+      return { ok: true, port };
+    }
+
+    function updateAgentApiPreview() {
+      const g = config.general || {};
+      const portInput = document.getElementById('cfg-apiPort');
+      const validation = document.getElementById('agent-api-validation');
+      const parsed = parseApiPortInput(portInput?.value || g.apiPort || 8765);
+      const port = parsed.ok ? parsed.port : (g.apiPort || 8765);
+      const listenHost = g.apiListenHost || '0.0.0.0';
+      document.getElementById('agent-api-local-preview').textContent = `http://127.0.0.1:${port}`;
+      document.getElementById('agent-api-listen-host').textContent = listenHost;
+
+      if (validation) {
+        validation.style.display = parsed.ok ? 'none' : '';
+        validation.textContent = parsed.ok ? '' : parsed.error;
+      }
+
+      const remote = document.getElementById('agent-api-remote-preview');
+      if (!remote) return;
+      if (detectedAddresses?.remoteAccess?.enabled === false) {
+        remote.textContent = detectedAddresses.remoteAccess.reason || 'Remote access disabled in local-only mode.';
+      } else if (detectedAddresses?.tailscale?.address) {
+        remote.textContent = detectedAddresses.tailscale.address.replace(/:\d+$/, `:${port}`);
+      } else {
+        remote.textContent = 'No Tailscale address detected.';
+      }
+    }
+
+    async function saveAgentApiPort() {
+      const input = document.getElementById('cfg-apiPort');
+      const parsed = parseApiPortInput(input.value);
+      updateAgentApiPreview();
+      if (!parsed.ok) return;
+      try {
+        const previousPort = config.general?.apiPort || 8765;
+        const saved = await saveConfig({ general: { apiPort: parsed.port } });
+        if (!saved) {
+          input.value = String(config.general?.apiPort || 8765);
+          updateAgentApiPreview();
+          return;
+        }
+        if (previousPort !== parsed.port) {
+          showToast('Saved. Restart Tandem to use the new port.');
+        }
+        await loadAddresses();
+        updateAgentApiPreview();
+        if (selectedMode) selectAgentMode(selectedMode);
+      } catch {
+        showToast('Save failed ✕');
+      }
+    }
+
     async function loadAddresses() {
       try {
         const res = await fetch(`${API}/pairing/addresses`);
         if (res.ok) detectedAddresses = await res.json();
       } catch { /* API not ready */ }
+      updateAgentApiPreview();
     }
 
     function selectAgentMode(mode) {
@@ -2299,7 +2394,7 @@
       detail.style.display = '';
 
       if (mode === 'local') {
-        const addr = detectedAddresses ? detectedAddresses.local.address : 'http://127.0.0.1:8765';
+        const addr = detectedAddresses ? detectedAddresses.local.address : `${API}`;
         info.innerHTML = `
           <p class="field-desc">Your AI and Tandem are on the same machine.</p>
           <p class="field-desc" style="margin-top:4px;">Tandem will generate a ready-to-paste instruction block for your AI.</p>
@@ -2309,7 +2404,13 @@
         connectBtn.disabled = false;
         connectBtn.textContent = 'Generate connection instructions';
       } else {
-        if (detectedAddresses && detectedAddresses.tailscale.available) {
+        if (detectedAddresses && detectedAddresses.remoteAccess && !detectedAddresses.remoteAccess.enabled) {
+          info.innerHTML = `
+            <p class="field-desc" style="color:var(--warning)">Remote agent access is disabled.</p>
+            <p class="field-desc" style="margin-top:4px;">${esc(detectedAddresses.remoteAccess.reason || 'The Agent API is listening on loopback only.')}</p>`;
+          connectBtn.disabled = true;
+          connectBtn.textContent = 'Remote access disabled';
+        } else if (detectedAddresses && detectedAddresses.tailscale.available) {
           const addr = detectedAddresses.tailscale.address;
           info.innerHTML = `
             <p class="field-desc">Your AI runs on another machine in your Tailscale network.</p>
@@ -2333,7 +2434,7 @@
 
     function buildInstructionText(code, mode) {
       const addr = mode === 'local'
-        ? (detectedAddresses ? detectedAddresses.local.address : 'http://127.0.0.1:8765')
+        ? (detectedAddresses ? detectedAddresses.local.address : `${API}`)
         : detectedAddresses.tailscale.address;
 
       if (mode === 'local') {

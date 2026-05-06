@@ -1,7 +1,8 @@
 import fs from 'fs';
+import { buildLocalApiBaseUrl, readApiPortFromBootstrap } from '../src/config/api-endpoints';
 import { tandemDir } from '../src/utils/paths';
 
-const API_BASE = process.env.TANDEM_API || 'http://localhost:8765';
+const API_BASE = process.env.TANDEM_API || buildLocalApiBaseUrl(readApiPortFromBootstrap());
 const TOKEN_PATH = tandemDir('api-token');
 
 function getToken(): string {
